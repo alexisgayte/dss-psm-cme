@@ -11,7 +11,7 @@ import {Dai}              from "dss/dai.sol";
 
 import {AuthGemJoin5} from "./join-5-auth.sol";
 import {AuthGemJoin} from "./join-X-auth.sol";
-import {LendingAuthGemJoin} from "./join-lending-auth.sol";
+import {LendingAuthGemJoin, LTKLike} from "./join-lending-auth.sol";
 import "./DssPsmCme.sol";
 
 interface Hevm {
@@ -23,6 +23,94 @@ contract TestToken is DSToken {
 
     constructor(bytes32 symbol_, uint256 decimals_) public DSToken(symbol_) {
         decimals = decimals_;
+    }
+
+}
+
+contract TestCToken is DSMath {
+
+    DSToken underlyingToken;
+
+    constructor(bytes32 symbol_, uint256 decimals_, DSToken underlyingToken_) public {
+        decimals = decimals_;
+        underlyingToken = underlyingToken_;
+        symbol = symbol_;
+    }
+
+    function mint(uint256 mintAmount) external returns (uint256){
+        mint(msg.sender, mintAmount);
+        underlyingToken.burn(msg.sender, mintAmount);
+        return 0;
+    }
+
+    function redeemUnderlying(uint256 redeemAmount) external returns (uint256){
+        burn(msg.sender, redeemAmount);
+        underlyingToken.mint(msg.sender, redeemAmount);
+        return 0;
+    }
+
+    //// TokenDS
+
+    bool                                              public  stopped;
+    uint256                                           public  totalSupply;
+    mapping (address => uint256)                      public  balanceOf;
+    mapping (address => mapping (address => uint256)) public  allowance;
+    bytes32                                           public  symbol;
+    uint256                                           public  decimals = 18; // standard token precision. override to customize
+    bytes32                                           public  name = "";     // Optional token name
+
+    event Approval(address indexed src, address indexed guy, uint wad);
+    event Transfer(address indexed src, address indexed dst, uint wad);
+    event Mint(address indexed guy, uint wad);
+    event Burn(address indexed guy, uint wad);
+
+    function approve(address guy) external returns (bool) {
+        return approve(guy, uint(-1));
+    }
+
+    function approve(address guy, uint wad) public returns (bool) {
+        allowance[msg.sender][guy] = wad;
+
+        emit Approval(msg.sender, guy, wad);
+
+        return true;
+    }
+
+    function transfer(address dst, uint wad) external returns (bool) {
+        return transferFrom(msg.sender, dst, wad);
+    }
+
+    function transferFrom(address src, address dst, uint wad) public returns (bool){
+        if (src != msg.sender && allowance[src][msg.sender] != uint(-1)) {
+            require(allowance[src][msg.sender] >= wad, "ds-token-insufficient-approval");
+            allowance[src][msg.sender] = sub(allowance[src][msg.sender], wad);
+        }
+
+        require(balanceOf[src] >= wad, "ds-token-insufficient-balance");
+        balanceOf[src] = sub(balanceOf[src], wad);
+        balanceOf[dst] = add(balanceOf[dst], wad);
+
+        emit Transfer(src, dst, wad);
+
+        return true;
+    }
+
+    function mint(address guy, uint wad) public {
+        balanceOf[guy] = add(balanceOf[guy], wad);
+        totalSupply = add(totalSupply, wad);
+        emit Mint(guy, wad);
+    }
+
+    function burn(address guy, uint wad) public {
+        if (guy != msg.sender && allowance[guy][msg.sender] != uint(-1)) {
+            require(allowance[guy][msg.sender] >= wad, "ds-token-insufficient-approval");
+            allowance[guy][msg.sender] = sub(allowance[guy][msg.sender], wad);
+        }
+
+        require(balanceOf[guy] >= wad, "ds-token-insufficient-balance");
+        balanceOf[guy] = sub(balanceOf[guy], wad);
+        totalSupply = sub(totalSupply, wad);
+        emit Burn(guy, wad);
     }
 
 }
@@ -53,10 +141,10 @@ contract TestVow is Vow {
 contract User {
 
     Dai public dai;
-    AuthGemJoin5 public gemJoin;
+    LendingAuthGemJoin public gemJoin;
     DssPsmCme public psm;
 
-    constructor(Dai dai_, AuthGemJoin5 gemJoin_, DssPsmCme psm_) public {
+    constructor(Dai dai_, LendingAuthGemJoin gemJoin_, DssPsmCme psm_) public {
         dai = dai_;
         gemJoin = gemJoin_;
         psm = psm_;
@@ -91,7 +179,9 @@ contract DssPsmCmeTest is DSTest {
     DaiJoin daiJoinGemB;
     Dai dai;
 
-    AuthGemJoin5 gemA;
+    TestCToken ctoken;
+
+    LendingAuthGemJoin gemA;
     AuthGemJoin gemB;
     DssPsmCme psmA;
 
@@ -138,7 +228,10 @@ contract DssPsmCmeTest is DSTest {
 
         dai = new Dai(0);
 
-        gemA = new AuthGemJoin5(address(vat), ilkA, address(usdx));
+        ctoken = new TestCToken("CUSDC", 8, usdx);
+        usdx.setOwner(address(ctoken));
+
+        gemA = new LendingAuthGemJoin(address(vat), ilkA, address(usdx), address(ctoken));
         vat.rely(address(gemA));
 
         gemB = new AuthGemJoin(address(vat), ilkB, address(dai));
@@ -199,6 +292,7 @@ contract DssPsmCmeTest is DSTest {
 
         assertEq(usdx.balanceOf(me), 900 * USDX_WAD);
         assertEq(vat.gem(ilkA, me), 0);
+        assertEq(vat.gem(ilkB, me), 0);
         assertEq(vat.dai(me), 0);
         assertEq(dai.balanceOf(me), 100 ether);
         assertEq(vow.Joy(), 0);
