@@ -39,6 +39,7 @@ contract TestCToken is DSMath {
 
     DSToken underlyingToken;
     uint reward;
+    uint feesIncome;
     DSToken bonusToken;
 
     constructor(bytes32 symbol_, uint256 decimals_, DSToken underlyingToken_, DSToken bonusToken_) public {
@@ -62,8 +63,17 @@ contract TestCToken is DSMath {
         return 0;
     }
 
+    function balanceOfUnderlying(address usr) external returns (uint256){
+        return balanceOf[usr];
+    }
+
+
     function setReward(uint256 reward_) external {
         reward = reward_;
+    }
+
+    function setFeeIncome(address usr, uint256 feesIncome_) external {
+        mint(usr, feesIncome_);
     }
 
     //// TokenDS
@@ -152,7 +162,7 @@ contract DssPsmCmeTest is DSTest {
 
     TestCToken ctoken;
     DSToken bonusToken;
-    TestDelegator bonusDelegator;
+    TestDelegator excessDelegator;
 
     LendingAuthGemJoin gemA;
 
@@ -163,7 +173,7 @@ contract DssPsmCmeTest is DSTest {
     bytes32 constant ilkA = "usdx";
 
     uint256 constant TOLL_ONE_PCT = 10 ** 16;
-    uint256 constant USDX_WAD = 10 ** 6;
+    uint256 USDX_WAD;
     uint256 USDX_TO_18;
 
     function ray(uint256 wad) internal pure returns (uint256) {
@@ -186,20 +196,22 @@ contract DssPsmCmeTest is DSTest {
         spotGemA = new Spotter(address(vat));
         vat.rely(address(spotGemA));
 
-        usdx = new TestToken("USDX", 6);
-        usdx.mint(1000 * USDX_WAD);
+        usdx = new TestToken("USDX", 18);
+        USDX_WAD = 10 ** usdx.decimals();
         USDX_TO_18 = 10 ** (18 - usdx.decimals());
+        usdx.mint(1000 * USDX_WAD);
         vat.init(ilkA);
 
         dai = new Dai(0);
         bonusToken = new TestToken("XOMP", 8);
-        bonusDelegator = new TestDelegator();
+        excessDelegator = new TestDelegator();
         ctoken = new TestCToken("CUSDC", 8, usdx, bonusToken);
         usdx.setOwner(address(ctoken));
 
         bonusToken.setOwner(address(ctoken));
 
-        gemA = new LendingAuthGemJoin(address(vat), ilkA, address(usdx), address(ctoken));
+        gemA = new LendingAuthGemJoin(address(vat), ilkA, address(usdx), address(ctoken), address(bonusToken));
+        gemA.rely(me);
         vat.rely(address(gemA));
 
         pipGemA = new DSValue();
@@ -261,79 +273,54 @@ contract DssPsmCmeTest is DSTest {
         gemA.join(me, 10 * USDX_WAD, me);
     }
 
-    function test_join_with_delegator_call_only() public {
-        assertEq(usdx.balanceOf(me), 1000 * USDX_WAD);
-        assertEq(vat.gem(ilkA, me), 0);
-        assertEq(vat.dai(me), 0);
+    function testFail_direct_join_exit() public {
 
-        usdx.approve(address(gemA));//token
-        gemA.file("bonusDelegator", address(me));
-        gemA.join(me, 100 * USDX_WAD, me);
-
-        assertEq(usdx.balanceOf(me), 900 * USDX_WAD);
-        assertEq(vat.gem(ilkA, me), 100 * USDX_WAD * USDX_TO_18);
+        gemA.deny(me);
+        usdx.approve(address(gemA), uint(-1));
+        gemA.exit(me, 10 * USDX_WAD);
     }
 
-    function test_join_with_bonus_token_call_only() public {
-        assertEq(usdx.balanceOf(me), 1000 * USDX_WAD);
-        assertEq(vat.gem(ilkA, me), 0);
-        assertEq(vat.dai(me), 0);
-
-        usdx.approve(address(gemA));//token
-        gemA.file("bonusToken", address(bonusToken));
-        gemA.join(me, 100 * USDX_WAD, me);
-
-        assertEq(usdx.balanceOf(me), 900 * USDX_WAD);
-        assertEq(vat.gem(ilkA, me), 100 * USDX_WAD * USDX_TO_18);
-    }
-
-    function test_join_with_bonus_delegator_setup() public {
+    function test_harvest_with_bonus() public {
         usdx.approve(address(gemA));//token
 
-        gemA.file("bonusToken", address(bonusToken));
-        gemA.file("bonusDelegator", address(bonusDelegator));
+        gemA.file("excessDelegator", address(excessDelegator));
         ctoken.setReward(1);
 
         gemA.join(me, 100 * USDX_WAD, me);
-        assertTrue(!bonusDelegator.hasBeenCalled());
         gemA.exit(me, 100 * USDX_WAD);
-        assertTrue(!bonusDelegator.hasBeenCalled());
-        hevm.warp(1 days);
         gemA.join(me, 100 * USDX_WAD, me);
-        assertTrue(bonusDelegator.hasBeenCalled());
-        bonusDelegator.reset();
-        gemA.exit(me, 100 * USDX_WAD);
-        assertTrue(!bonusDelegator.hasBeenCalled());
+        gemA.harvest();
 
-        assertEq(bonusToken.balanceOf(address(bonusDelegator)) , 3);
+        assertTrue(excessDelegator.hasBeenCalled());
+        assertEq(bonusToken.balanceOf(address(excessDelegator)) , 3);
+        assertEq(usdx.balanceOf(address(excessDelegator)) , 0);
     }
 
-    function test_join_with_bonus_delegator_and_duration() public {
+    function test_harvest_with_no_monies() public {
         usdx.approve(address(gemA));//token
 
-        gemA.file("bonusToken", address(bonusToken));
-        gemA.file("bonusDelegator", address(bonusDelegator));
-        gemA.file("duration", 14400); //4 hours
-        ctoken.setReward(1);
+        gemA.file("excessDelegator", address(excessDelegator));
+        ctoken.setReward(0);
 
         gemA.join(me, 100 * USDX_WAD, me);
-        assertTrue(!bonusDelegator.hasBeenCalled());
         gemA.exit(me, 100 * USDX_WAD);
-        assertTrue(!bonusDelegator.hasBeenCalled());
-        hevm.warp(2 hours);
-        gemA.join(me, 100 * USDX_WAD, me);
-        assertTrue(!bonusDelegator.hasBeenCalled());
-        bonusDelegator.reset();
-        gemA.exit(me, 100 * USDX_WAD);
-        assertTrue(!bonusDelegator.hasBeenCalled());
+        gemA.harvest();
 
-        assertEq(bonusToken.balanceOf(address(bonusDelegator)) , 0);
-
-        hevm.warp(4 hours + 1 seconds);
-
-        gemA.join(me, 100 * USDX_WAD, me);
-        assertTrue(bonusDelegator.hasBeenCalled());
-
-        assertEq(bonusToken.balanceOf(address(bonusDelegator)) , 5);
+        assertTrue(!excessDelegator.hasBeenCalled());
+        assertEq(bonusToken.balanceOf(address(excessDelegator)) , 0);
     }
+
+    function test_harvest_with_fees() public {
+        usdx.approve(address(gemA));//token
+        gemA.file("excessDelegator", address(excessDelegator));
+        ctoken.setReward(0);
+        ctoken.setFeeIncome(address(gemA), 4 * USDX_WAD);
+        //vat.urns(ilkA);
+        gemA.join(me, 100 * USDX_WAD, me);
+        vat.frob(ilkA, me, me, me, 100, 100);
+        gemA.harvest();
+        assertTrue(excessDelegator.hasBeenCalled());
+        assertEq(usdx.balanceOf(address(excessDelegator)) , 4);
+    }
+
 }

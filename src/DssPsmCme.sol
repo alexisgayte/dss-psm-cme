@@ -4,12 +4,13 @@ import { DaiJoinAbstract } from "dss-interfaces/dss/DaiJoinAbstract.sol";
 import { DaiAbstract } from "dss-interfaces/dss/DaiAbstract.sol";
 import { VatAbstract } from "dss-interfaces/dss/VatAbstract.sol";
 
-interface AuthGemJoinAbstract {
+interface AuthLendingGemJoinAbstract {
     function dec() external view returns (uint256);
     function vat() external view returns (address);
     function ilk() external view returns (bytes32);
     function join(address, uint256, address) external;
     function exit(address, uint256) external;
+    function harvest() external;
 }
 
 // Peg Stability Module With Dai Leverage
@@ -24,9 +25,14 @@ contract DssPsmCme {
     function deny(address usr) external auth { wards[usr] = 0; emit Deny(usr); }
     modifier auth { require(wards[msg.sender] == 1); _; }
 
+    // --- Lock ---
+    uint private unlocked = 1;
+    modifier lock() {require(unlocked == 1, 'UniswapV2: LOCKED');unlocked = 0;_;unlocked = 1;}
+
+
     VatAbstract immutable public vat;
-    AuthGemJoinAbstract immutable public gemJoin;
-    AuthGemJoinAbstract immutable public leverageGemJoin;
+    AuthLendingGemJoinAbstract immutable public gemJoin;
+    AuthLendingGemJoinAbstract immutable public leverageGemJoin;
     DaiAbstract         immutable public dai;
     DaiJoinAbstract     immutable public daiJoin;
     DaiJoinAbstract     immutable public leverageDaiJoin;
@@ -50,8 +56,8 @@ contract DssPsmCme {
     constructor(address gemJoin_, address daiJoin_, address leverageGemJoin_, address leverageDaiJoin_,  address vow_) public {
         wards[msg.sender] = 1;
         emit Rely(msg.sender);
-        AuthGemJoinAbstract gemJoin__ = gemJoin = AuthGemJoinAbstract(gemJoin_);
-        AuthGemJoinAbstract leverageGemJoin__ = leverageGemJoin = AuthGemJoinAbstract(leverageGemJoin_);
+        AuthLendingGemJoinAbstract gemJoin__ = gemJoin = AuthLendingGemJoinAbstract(gemJoin_);
+        AuthLendingGemJoinAbstract leverageGemJoin__ = leverageGemJoin = AuthLendingGemJoinAbstract(leverageGemJoin_);
         DaiJoinAbstract daiJoin__ = daiJoin = DaiJoinAbstract(daiJoin_);
         leverageDaiJoin = DaiJoinAbstract(leverageDaiJoin_);
         VatAbstract vat__ = vat = VatAbstract(address(gemJoin__.vat()));
@@ -96,7 +102,16 @@ contract DssPsmCme {
     }
 
     // --- Primary Functions ---
-    function sellGem(address usr, uint256 gemAmt) external {
+    function _harvest() private {
+        leverageGemJoin.harvest();
+        gemJoin.harvest();
+    }
+
+    function harvest() external lock {
+        _harvest();
+    }
+
+    function sellGem(address usr, uint256 gemAmt) external lock {
         uint256 gemAmt18 = mul(gemAmt, to18ConversionFactor);
         uint256 fee = mul(gemAmt18, tin) / WAD;
         uint256 daiAmt = sub(gemAmt18, fee);
@@ -110,11 +125,11 @@ contract DssPsmCme {
         leverageDaiJoin.exit(usr, daiAmt);
 
         vat.move(address(this), vow, mul(fee, RAY));
-
+        _harvest();
         emit SellGem(usr, gemAmt, fee);
     }
 
-    function buyGem(address usr, uint256 gemAmt) external {
+    function buyGem(address usr, uint256 gemAmt) external lock {
         uint256 gemAmt18 = mul(gemAmt, to18ConversionFactor);
         uint256 fee = mul(gemAmt18, tout) / WAD;
         uint256 daiAmt = add(gemAmt18, fee);
@@ -128,8 +143,9 @@ contract DssPsmCme {
         daiJoin.join(address(this), daiAmt);
         vat.frob(ilk, address(this), address(this), address(this), -int256(gemAmt18), -int256(gemAmt18));
         gemJoin.exit(usr, gemAmt);
-        vat.move(address(this), vow, mul(fee, RAY));
 
+        vat.move(address(this), vow, mul(fee, RAY));
+        _harvest();
         emit BuyGem(usr, gemAmt, fee);
     }
 

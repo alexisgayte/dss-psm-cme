@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-/// join-5-auth.sol -- Non-standard token adapters
+/// join-lending-auth.sol -- Non-standard token adapters
 
 // Copyright (C) 2018 Rain <rainbreak@riseup.net>
 // Copyright (C) 2018-2020 Maker Ecosystem Growth Holdings, INC.
@@ -24,11 +24,14 @@ import "dss/lib.sol";
 
 interface VatLike {
     function slip(bytes32, address, int256) external;
+    function gem(bytes32, address) external view returns (int256);
+    function urns(bytes32, address) external view returns (uint256, uint256);
 }
 
 interface LTKLike {
     function mint(uint mintAmount) external returns (uint);
     function redeemUnderlying(uint redeemAmount) external returns (uint);
+    function balanceOfUnderlying(address owner) external returns (uint);
 }
 
 interface GemLike {
@@ -48,7 +51,11 @@ interface CalLike {
 contract LendingAuthGemJoin is LibNote{
     // --- Auth ---
     mapping (address => uint256) public wards;
-    function rely(address usr) external note auth { wards[usr] = 1; }
+    address[] private wards_address;
+    function rely(address usr) external note auth {
+        wards[usr] = 1;
+        wards_address.push(usr);
+    }
     function deny(address usr) external note auth { wards[usr] = 0; }
     modifier auth { require(wards[msg.sender] == 1); _; }
 
@@ -59,40 +66,29 @@ contract LendingAuthGemJoin is LibNote{
     uint256 public live;  // Access Flag
     LTKLike public ltk;
 
-    CalLike public bonus_delegator;
+    CalLike public excess_delegator;
     GemLike public bonus_token;
-    uint256 public duration;
-    uint256 public last_timestamp;
+    uint256 public gemTo18ConversionFactor;
 
-    event Delegate(uint256 balance);
     event File(bytes32 indexed what, address data);
-    event File(bytes32 indexed what, uint256 data);
 
-    constructor(address vat_, bytes32 ilk_, address gem_, address ltk_) public {
+    constructor(address vat_, bytes32 ilk_, address gem_, address ltk_, address bonus_token_) public {
         gem = GemLike(gem_);
         dec = gem.decimals();
-        require(dec < 18, "GemJoin5/decimals-18-or-higher");
+        require(dec <= 18, "GemJoin5/decimals-18-or-higher");
         wards[msg.sender] = 1;
         live = 1;
         vat = VatLike(vat_);
         ilk = ilk_;
         ltk = LTKLike(ltk_);
-        bonus_delegator = CalLike(0);
-        last_timestamp = block.timestamp;
-
+        excess_delegator = CalLike(0);
+        bonus_token = GemLike(bonus_token_);
+        gemTo18ConversionFactor = 10 ** (18 - dec);
     }
 
     // --- Administration ---
     function file(bytes32 what, address data) external auth {
-        if (what == "bonusDelegator") bonus_delegator = CalLike(data);
-        else if (what == "bonusToken") bonus_token = GemLike(data);
-        else revert("LendingAuthGemJoin/file-unrecognized-param");
-
-        emit File(what, data);
-    }
-
-    function file(bytes32 what, uint256 data) external auth {
-        if (what == "duration") duration = data;
+        if (what == "excessDelegator") excess_delegator = CalLike(data);
         else revert("LendingAuthGemJoin/file-unrecognized-param");
 
         emit File(what, data);
@@ -102,42 +98,78 @@ contract LendingAuthGemJoin is LibNote{
         live = 0;
     }
 
+    // --- Math ---
+    uint256 constant WAD = 10 ** 18;
+    function add(uint x, int y) internal pure returns (uint z) {
+        z = x + uint(y);
+        require(y >= 0 || z <= x);
+        require(y <= 0 || z >= x);
+    }
+    function add(uint256 x, uint256 y) internal pure returns (uint256 z) {
+        require((z = x + y) >= x);
+    }
     function mul(uint256 x, uint256 y) internal pure returns (uint256 z) {
         require(y == 0 || (z = x * y) / y == x, "LendingAuthGemJoin/overflow");
     }
+    function sub(uint x, uint y) internal pure returns (uint z) {
+        require((z = x - y) <= x, "LendingAuthGemJoin/underflow");
+    }
+
+
+    // --- harvest ---
+    function sumGemsStored() view public returns (uint256 sum_){
+        sum_ = 0;
+        uint256 ink;
+        for (uint i = 0; i < wards_address.length; i++) {
+            sum_ = add(sum_, vat.gem(ilk, wards_address[i]));
+            (ink,) = vat.urns(ilk, wards_address[i]);
+            sum_ = add(sum_, ink);
+        }
+    }
+
+    function harvest() external note auth {
+        if (address(excess_delegator) != address(0)) {
+            uint256 balance = bonus_token.balanceOf(address(this));
+            uint256 gems = sumGemsStored();
+            uint256 wgems = gems / WAD;
+            uint256 wunderlying = ltk.balanceOfUnderlying(address(this)) * gemTo18ConversionFactor / WAD;
+
+            if (balance > 0) {
+                require(bonus_token.transfer(address(excess_delegator), balance), "LendingAuthGemJoin/failed-transfer");
+            }
+
+            if (wunderlying > wgems) {
+                uint256 excess_underlying = sub(wunderlying, wgems);
+                require(ltk.redeemUnderlying(excess_underlying) == 0, "LendingAuthGemJoin/failed-redemmUnderlying");
+                require(gem.transfer(address(excess_delegator), excess_underlying), "LendingAuthGemJoin/failed-transfer");
+            }
+
+            if (balance > 0 || wunderlying > wgems) {
+                excess_delegator.call();
+            }
+        }
+    }
+
+    // --- Join ---
 
     function join(address urn, uint256 wad, address _msgSender) public note auth {
         require(live == 1, "LendingAuthGemJoin/not-live");
-        uint256 wad18 = mul(wad, 10 ** (18 - dec));
+        uint256 wad18 = mul(wad, gemTo18ConversionFactor);
         require(int256(wad18) >= 0, "LendingAuthGemJoin/overflow");
         vat.slip(ilk, urn, int256(wad18));
 
         require(gem.transferFrom(_msgSender, address(this), wad), "LendingAuthGemJoin/failed-transfer");
         gem.approve(address(ltk), wad);
-        assert(ltk.mint(wad) == 0);
-        _callDelegator();
+        require(ltk.mint(wad) == 0, "LendingAuthGemJoin/failed-mint");
     }
 
     function exit(address guy, uint256 wad) public note {
-        uint256 wad18 = mul(wad, 10 ** (18 - dec));
+        uint256 wad18 = mul(wad, gemTo18ConversionFactor);
         require(int256(wad18) >= 0, "LendingAuthGemJoin/overflow");
         vat.slip(ilk, msg.sender, -int256(wad18));
 
         require(ltk.redeemUnderlying(wad) == 0, "LendingAuthGemJoin/failed-redemmUnderlying");
         require(gem.transfer(guy, wad), "LendingAuthGemJoin/failed-transfer");
-        _callDelegator();
     }
 
-    function _callDelegator() private {
-        if (address(bonus_token) != address(0) && address(bonus_delegator) != address(0)) {
-            uint256 balance = bonus_token.balanceOf(address(this));
-            if (block.timestamp - last_timestamp > duration && balance > 0) {
-                last_timestamp = block.timestamp;
-                require(block.timestamp !=0, "LendingAuthGemJoin/failed-transfer");
-                bonus_token.transfer(address(bonus_delegator), balance);
-                bonus_delegator.call();
-                emit Delegate(balance);
-            }
-        }
-    }
 }
