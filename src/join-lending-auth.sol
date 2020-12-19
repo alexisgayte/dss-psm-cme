@@ -18,7 +18,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-pragma solidity ^0.6.7;
+pragma solidity 0.6.7;
 
 import "dss/lib.sol";
 
@@ -59,23 +59,23 @@ contract LendingAuthGemJoin is LibNote{
     function deny(address usr) external note auth { wards[usr] = 0; }
     modifier auth { require(wards[msg.sender] == 1); _; }
 
-    VatLike public vat;
-    bytes32 public ilk;
+    VatLike public immutable vat;
+    bytes32 public immutable ilk;
     GemLike public gem;
     uint256 public dec;
     uint256 public live;  // Access Flag
-    LTKLike public ltk;
+    LTKLike public immutable ltk;
 
     CalLike public excess_delegator;
-    GemLike public bonus_token;
-    uint256 public gemTo18ConversionFactor;
+    GemLike public immutable bonus_token;
+    uint256 public immutable gemTo18ConversionFactor;
 
     event File(bytes32 indexed what, address data);
 
     constructor(address vat_, bytes32 ilk_, address gem_, address ltk_, address bonus_token_) public {
         gem = GemLike(gem_);
         dec = gem.decimals();
-        require(dec <= 18, "GemJoin5/decimals-18-or-higher");
+        require(dec <= 18, "LendingAuthGemJoin/decimals-18-or-higher");
         wards[msg.sender] = 1;
         live = 1;
         vat = VatLike(vat_);
@@ -132,16 +132,16 @@ contract LendingAuthGemJoin is LibNote{
             uint256 balance = bonus_token.balanceOf(address(this));
             uint256 gems = sumGemsStored();
             uint256 wgems = gems / WAD;
-            uint256 wunderlying = ltk.balanceOfUnderlying(address(this)) * gemTo18ConversionFactor / WAD;
+            uint256 wunderlying = mul(ltk.balanceOfUnderlying(address(this)), gemTo18ConversionFactor) / WAD;
 
             if (balance > 0) {
-                require(bonus_token.transfer(address(excess_delegator), balance), "LendingAuthGemJoin/failed-transfer");
+                require(bonus_token.transfer(address(excess_delegator), balance), "LendingAuthGemJoin/failed-transfer-bonus-token");
             }
 
             if (wunderlying > wgems) {
                 uint256 excess_underlying = sub(wunderlying, wgems);
-                require(ltk.redeemUnderlying(excess_underlying) == 0, "LendingAuthGemJoin/failed-redemmUnderlying");
-                require(gem.transfer(address(excess_delegator), excess_underlying), "LendingAuthGemJoin/failed-transfer");
+                require(ltk.redeemUnderlying(excess_underlying) == 0, "LendingAuthGemJoin/failed-redemmUnderlying-excess");
+                require(gem.transfer(address(excess_delegator), excess_underlying), "LendingAuthGemJoin/failed-transfer-excess");
             }
 
             if (balance > 0 || wunderlying > wgems) {
@@ -152,24 +152,24 @@ contract LendingAuthGemJoin is LibNote{
 
     // --- Join ---
 
-    function join(address urn, uint256 wad, address _msgSender) public note auth {
+    function join(address urn, uint256 wad, address _msgSender) external note auth {
         require(live == 1, "LendingAuthGemJoin/not-live");
         uint256 wad18 = mul(wad, gemTo18ConversionFactor);
-        require(int256(wad18) >= 0, "LendingAuthGemJoin/overflow");
+        require(int256(wad18) >= 0, "LendingLeverageAuthGemJoin/overflow");
         vat.slip(ilk, urn, int256(wad18));
 
-        require(gem.transferFrom(_msgSender, address(this), wad), "LendingAuthGemJoin/failed-transfer");
-        gem.approve(address(ltk), wad);
+        require(gem.transferFrom(_msgSender, address(this), wad), "LendingAuthGemJoin/failed-transfer-join");
+        require(gem.approve(address(ltk), wad), "LendingAuthGemJoin/failed-approve-mint");
         require(ltk.mint(wad) == 0, "LendingAuthGemJoin/failed-mint");
     }
 
-    function exit(address guy, uint256 wad) public note {
+    function exit(address guy, uint256 wad) external note {
         uint256 wad18 = mul(wad, gemTo18ConversionFactor);
-        require(int256(wad18) >= 0, "LendingAuthGemJoin/overflow");
+        require(int256(wad18) >= 0, "LendingLeverageAuthGemJoin/overflow");
         vat.slip(ilk, msg.sender, -int256(wad18));
 
-        require(ltk.redeemUnderlying(wad) == 0, "LendingAuthGemJoin/failed-redemmUnderlying");
-        require(gem.transfer(guy, wad), "LendingAuthGemJoin/failed-transfer");
+        require(ltk.redeemUnderlying(wad) == 0, "LendingAuthGemJoin/failed-redemmUnderlying-exit");
+        require(gem.transfer(guy, wad), "LendingAuthGemJoin/failed-transfer-exit");
     }
 
 }

@@ -1,8 +1,10 @@
-pragma solidity ^0.6.7;
+pragma solidity 0.6.7;
 
 import { DaiJoinAbstract } from "dss-interfaces/dss/DaiJoinAbstract.sol";
 import { DaiAbstract } from "dss-interfaces/dss/DaiAbstract.sol";
 import { VatAbstract } from "dss-interfaces/dss/VatAbstract.sol";
+import { VowAbstract } from "dss-interfaces/dss/VowAbstract.sol";
+
 
 interface AuthLendingGemJoinAbstract {
     function dec() external view returns (uint256);
@@ -38,7 +40,7 @@ contract DssPsmCme {
     DaiJoinAbstract     immutable public leverageDaiJoin;
     bytes32             immutable public ilk;
     bytes32             immutable public leverageIlk;
-    address             immutable public vow;
+    VowAbstract         immutable public vow;
 
     uint256             immutable internal to18ConversionFactor;
 
@@ -64,11 +66,11 @@ contract DssPsmCme {
         DaiAbstract dai__ = dai = DaiAbstract(address(daiJoin__.dai()));
         ilk = gemJoin__.ilk();
         leverageIlk = leverageGemJoin__.ilk();
-        vow = vow_;
+        vow = VowAbstract(vow_);
         to18ConversionFactor = 10 ** (18 - gemJoin__.dec());
-        dai__.approve(daiJoin_, uint256(-1));
-        dai__.approve(leverageDaiJoin_, uint256(-1));
-        dai__.approve(leverageGemJoin_, uint256(-1));
+        require(dai__.approve(daiJoin_, uint256(-1)), "DssPsm/failed-approve");
+        require(dai__.approve(leverageDaiJoin_, uint256(-1)), "DssPsm/failed-approve");
+        require(dai__.approve(leverageGemJoin_, uint256(-1)), "DssPsm/failed-approve");
         vat__.hope(daiJoin_);
         vat__.hope(leverageDaiJoin_);
     }
@@ -94,12 +96,6 @@ contract DssPsmCme {
 
         emit File(what, data);
     }
-    function hope(address usr) external auth {
-        vat.hope(usr);
-    }
-    function nope(address usr) external auth {
-        vat.nope(usr);
-    }
 
     // --- Primary Functions ---
     function _harvest() private {
@@ -113,7 +109,8 @@ contract DssPsmCme {
 
     function sellGem(address usr, uint256 gemAmt) external lock {
         uint256 gemAmt18 = mul(gemAmt, to18ConversionFactor);
-        uint256 fee = mul(gemAmt18, tin) / WAD;
+        uint256 prefee = mul(gemAmt18, tin);
+        uint256 fee = prefee / WAD;
         uint256 daiAmt = sub(gemAmt18, fee);
 
         gemJoin.join(address(this), gemAmt, msg.sender);
@@ -124,14 +121,15 @@ contract DssPsmCme {
         vat.frob(leverageIlk, address(this), address(this), address(this), int256(gemAmt18), int256(gemAmt18));
         leverageDaiJoin.exit(usr, daiAmt);
 
-        vat.move(address(this), vow, mul(fee, RAY));
+        vat.move(address(this), address(vow), mul(fee, RAY));
         _harvest();
         emit SellGem(usr, gemAmt, fee);
     }
 
     function buyGem(address usr, uint256 gemAmt) external lock {
         uint256 gemAmt18 = mul(gemAmt, to18ConversionFactor);
-        uint256 fee = mul(gemAmt18, tout) / WAD;
+        uint256 prefee = mul(gemAmt18, tout);
+        uint256 fee = prefee / WAD;
         uint256 daiAmt = add(gemAmt18, fee);
 
         require(dai.transferFrom(msg.sender, address(this), daiAmt), "DssPsm/failed-transfer");
@@ -144,7 +142,7 @@ contract DssPsmCme {
         vat.frob(ilk, address(this), address(this), address(this), -int256(gemAmt18), -int256(gemAmt18));
         gemJoin.exit(usr, gemAmt);
 
-        vat.move(address(this), vow, mul(fee, RAY));
+        vat.move(address(this), address(vow), mul(fee, RAY));
         _harvest();
         emit BuyGem(usr, gemAmt, fee);
     }
