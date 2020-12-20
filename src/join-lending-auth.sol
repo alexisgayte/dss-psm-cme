@@ -121,9 +121,9 @@ contract LendingAuthGemJoin is LibNote{
         sum_ = 0;
         uint256 ink;
         for (uint i = 0; i < wards_address.length; i++) {
-            sum_ = add(sum_, vat.gem(ilk, wards_address[i]));
             (ink,) = vat.urns(ilk, wards_address[i]);
             sum_ = add(sum_, ink);
+            sum_ = add(sum_, vat.gem(ilk, wards_address[i]));
         }
     }
 

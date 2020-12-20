@@ -44,10 +44,7 @@ contract SellDelegator {
     }
 
     function file(bytes32 what, uint256 data) external auth {
-        if (what == "max_sell_amount") {
-            max_sell_amount = data;
-            require(int256(max_sell_amount) >= 0, "SellDelegator/overflow-max-sell-amount");
-        }
+        if (what == "max_sell_amount") max_sell_amount = data;
         else if (what == "auction_duration") auction_duration = data;
         else revert("SellDelegator/file-unrecognized-param");
 
@@ -105,7 +102,7 @@ contract SellDelegator {
         bonus_token = GemLike(bonus_token_);
         route = RouteLike(route_);
         auction_duration = 10800;
-        max_sell_amount = 3000;
+        max_sell_amount = 50;
         psm_circuit_breaker = false;
     }
 

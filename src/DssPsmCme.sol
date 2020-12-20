@@ -29,7 +29,7 @@ contract DssPsmCme {
 
     // --- Lock ---
     uint private unlocked = 1;
-    modifier lock() {require(unlocked == 1, 'UniswapV2: LOCKED');unlocked = 0;_;unlocked = 1;}
+    modifier lock() {require(unlocked == 1, 'DssPsmCme/Locked');unlocked = 0;_;unlocked = 1;}
 
 
     VatAbstract immutable public vat;
@@ -68,9 +68,9 @@ contract DssPsmCme {
         leverageIlk = leverageGemJoin__.ilk();
         vow = VowAbstract(vow_);
         to18ConversionFactor = 10 ** (18 - gemJoin__.dec());
-        require(dai__.approve(daiJoin_, uint256(-1)), "DssPsm/failed-approve");
-        require(dai__.approve(leverageDaiJoin_, uint256(-1)), "DssPsm/failed-approve");
-        require(dai__.approve(leverageGemJoin_, uint256(-1)), "DssPsm/failed-approve");
+        require(dai__.approve(daiJoin_, uint256(-1)), "DssPsmCme/failed-approve");
+        require(dai__.approve(leverageDaiJoin_, uint256(-1)), "DssPsmCme/failed-approve");
+        require(dai__.approve(leverageGemJoin_, uint256(-1)), "DssPsmCme/failed-approve");
         vat__.hope(daiJoin_);
         vat__.hope(leverageDaiJoin_);
     }
@@ -90,9 +90,15 @@ contract DssPsmCme {
 
     // --- Administration ---
     function file(bytes32 what, uint256 data) external auth {
-        if (what == "tin") tin = data;
-        else if (what == "tout") tout = data;
-        else revert("DssPsm/file-unrecognized-param");
+        if (what == "tin") {
+            require(data < WAD , "DssPsmCme/more-100-percent");
+            tin = data;
+        }
+        else if (what == "tout") {
+            require(data < WAD , "DssPsmCme/more-100-percent");
+            tout = data;
+        }
+        else revert("DssPsmCme/file-unrecognized-param");
 
         emit File(what, data);
     }
@@ -110,8 +116,11 @@ contract DssPsmCme {
     function sellGem(address usr, uint256 gemAmt) external lock {
         uint256 gemAmt18 = mul(gemAmt, to18ConversionFactor);
         uint256 prefee = mul(gemAmt18, tin);
+        require(int256(prefee) >= 0, "DssPsmCme/overflow-fee-sell-gem");
         uint256 fee = prefee / WAD;
         uint256 daiAmt = sub(gemAmt18, fee);
+
+        emit SellGem(usr, gemAmt, fee);
 
         gemJoin.join(address(this), gemAmt, msg.sender);
         vat.frob(ilk, address(this), address(this), address(this), int256(gemAmt18), int256(gemAmt18));
@@ -123,16 +132,19 @@ contract DssPsmCme {
 
         vat.move(address(this), address(vow), mul(fee, RAY));
         _harvest();
-        emit SellGem(usr, gemAmt, fee);
+
     }
 
     function buyGem(address usr, uint256 gemAmt) external lock {
         uint256 gemAmt18 = mul(gemAmt, to18ConversionFactor);
         uint256 prefee = mul(gemAmt18, tout);
+        require(int256(prefee) >= 0, "DssPsmCme/overflow-fee-buy-gem");
         uint256 fee = prefee / WAD;
         uint256 daiAmt = add(gemAmt18, fee);
 
-        require(dai.transferFrom(msg.sender, address(this), daiAmt), "DssPsm/failed-transfer");
+        emit BuyGem(usr, gemAmt, fee);
+
+        require(dai.transferFrom(msg.sender, address(this), daiAmt), "DssPsmCme/failed-transfer");
 
         leverageDaiJoin.join(address(this), gemAmt18);
         vat.frob(leverageIlk, address(this), address(this), address(this), -int256(gemAmt18), -int256(gemAmt18));
@@ -144,7 +156,7 @@ contract DssPsmCme {
 
         vat.move(address(this), address(vow), mul(fee, RAY));
         _harvest();
-        emit BuyGem(usr, gemAmt, fee);
+
     }
 
 }

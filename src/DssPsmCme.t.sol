@@ -557,4 +557,18 @@ contract DssPsmCmeTest is DSTest {
         gemA.join(me, 10 * USDX_WAD, me);
     }
 
+
+    uint256 constant WAD = 10 ** 18;
+    function testFail_tin_over_100_percent() public {
+        usdx.approve(address(gemA));
+        psmA.file("tin", 1 * WAD);
+        psmA.sellGem(me, 100 * USDX_WAD);
+    }
+
+    function testFail_tout_over_100_percent() public {
+        usdx.approve(address(gemA));
+        psmA.file("tout", 1 * WAD);
+        psmA.sellGem(me, 100 * USDX_WAD);
+    }
+
 }
