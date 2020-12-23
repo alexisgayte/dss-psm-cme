@@ -139,7 +139,8 @@ contract LendingAuthGemJoin is LibNote{
             }
 
             if (wunderlying > wgems) {
-                uint256 excess_underlying = sub(wunderlying, wgems);
+                uint256 wexcess_underlying = sub(wunderlying, wgems);
+                uint256 excess_underlying = mul(wexcess_underlying, WAD ) / gemTo18ConversionFactor;
                 require(ltk.redeemUnderlying(excess_underlying) == 0, "LendingAuthGemJoin/failed-redemmUnderlying-excess");
                 require(gem.transfer(address(excess_delegator), excess_underlying), "LendingAuthGemJoin/failed-transfer-excess");
             }

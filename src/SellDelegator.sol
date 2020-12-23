@@ -24,12 +24,6 @@ contract SellDelegator {
     function deny(address usr) external auth { wards[usr] = 0; emit Deny(usr); }
     modifier auth { require(wards[msg.sender] == 1); _; }
 
-    // --- CallAuth ---
-    mapping (address => uint256) public wcls;
-    function relyCall(address usr) external auth { wcls[usr] = 1; emit RelyCall(usr); }
-    function denyCall(address usr) external auth { wcls[usr] = 0; emit DenyCall(usr); }
-    modifier authCall { require(wcls[msg.sender] == 1); _; }
-
     // --- Lock ---
     uint private unlocked = 1;
     modifier lock() {require(unlocked == 1, 'SellDelegator/re-entrance');unlocked = 0;_;unlocked = 1;}
@@ -44,15 +38,8 @@ contract SellDelegator {
     }
 
     function file(bytes32 what, uint256 data) external auth {
-        if (what == "max_sell_amount") max_sell_amount = data;
+        if (what == "max_auction_amount") max_auction_amount = data;
         else if (what == "auction_duration") auction_duration = data;
-        else revert("SellDelegator/file-unrecognized-param");
-
-        emit File(what, data);
-    }
-
-    function file(bytes32 what, bool data) external auth {
-        if (what == "psm_circuit_breaker") psm_circuit_breaker = data;
         else revert("SellDelegator/file-unrecognized-param");
 
         emit File(what, data);
@@ -85,10 +72,9 @@ contract SellDelegator {
     GemLike public immutable bonus_token;
     RouteLike public route;
 
-    uint256 public max_sell_amount;
+    uint256 public max_auction_amount;
     uint256 public auction_duration;
     uint256 public last_timestamp;
-    bool public psm_circuit_breaker;
 
     // constructor
     constructor(address vow_, address psm_, address dai_, address usdc_, address bonus_token_, address route_) public {
@@ -101,22 +87,27 @@ contract SellDelegator {
         usdc = GemLike(usdc_);
         bonus_token = GemLike(bonus_token_);
         route = RouteLike(route_);
-        auction_duration = 10800;
-        max_sell_amount = 50;
-        psm_circuit_breaker = false;
+        auction_duration = 3600;
+        max_auction_amount = 500;
     }
 
 
     // --- Primary Functions ---
 
-    function call() external authCall {
-        uint256 _amount_usdc = usdc.balanceOf(address(this));
-        uint256 _amount_bonus = bonus_token.balanceOf(address(this));
+    function call() external {
 
-        if (!psm_circuit_breaker && _amount_usdc > 0){
-            require(usdc.approve(address(psm), _amount_usdc), "SellDelegator/failed-approve-psm");
-            psm.sellGem(address(vow), _amount_usdc);
+    }
+
+    function processDai() external lock {
+        uint256 _amount_dai = dai.balanceOf(address(this));
+        if (_amount_dai > 0){
+            require(dai.approve(vow, _amount_dai), "SellDelegator/failed-approve-dai");
+            require(dai.transfer(vow, _amount_dai), "SellDelegator/failed-transfer-dai");
         }
+    }
+
+    function processComp() external lock {
+        uint256 _amount_bonus = bonus_token.balanceOf(address(this));
 
         if ((block.timestamp - last_timestamp) > auction_duration && _amount_bonus > 0) {
             last_timestamp = block.timestamp;
@@ -127,14 +118,18 @@ contract SellDelegator {
             path[1] = address(dai);
 
             uint256[] memory _amount_out =  route.getAmountsOut(bonus_token.balanceOf(address(this)), path);
-            uint256 _buy_dai_amount = min(max_sell_amount, _amount_out[_amount_out.length - 1]);
+            uint256 _buy_dai_amount = min(max_auction_amount, _amount_out[_amount_out.length - 1]);
             route.swapTokensForExactTokens(_buy_dai_amount, uint(0), path, address(vow), block.timestamp + 3600);
         }
 
-        uint256 _amount_dai = dai.balanceOf(address(this));
-        if (_amount_dai > 0){
-            require(dai.approve(vow, _amount_dai), "SellDelegator/failed-approve-dai");
-            require(dai.transfer(vow, _amount_dai), "SellDelegator/failed-transfer-dai");
+    }
+
+    function processUsdc() external lock {
+        uint256 _amount_usdc = usdc.balanceOf(address(this));
+
+        if ( _amount_usdc > 0){
+            require(usdc.approve(address(psm), _amount_usdc), "SellDelegator/failed-approve-psm");
+            psm.sellGem(address(vow), _amount_usdc);
         }
 
     }

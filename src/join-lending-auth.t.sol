@@ -196,7 +196,7 @@ contract DssPsmCmeTest is DSTest {
         spotGemA = new Spotter(address(vat));
         vat.rely(address(spotGemA));
 
-        usdx = new TestToken("USDX", 18);
+        usdx = new TestToken("USDX", 6);
         USDX_WAD = 10 ** usdx.decimals();
         USDX_TO_18 = 10 ** (18 - usdx.decimals());
         usdx.mint(1000 * USDX_WAD);
@@ -315,12 +315,27 @@ contract DssPsmCmeTest is DSTest {
         gemA.file("excessDelegator", address(excessDelegator));
         ctoken.setReward(0);
         ctoken.setFeeIncome(address(gemA), 4 * USDX_WAD);
-        //vat.urns(ilkA);
+
         gemA.join(me, 100 * USDX_WAD, me);
         vat.frob(ilkA, me, me, me, 100, 100);
         gemA.harvest();
         assertTrue(excessDelegator.hasBeenCalled());
-        assertEq(usdx.balanceOf(address(excessDelegator)) , 4);
+        assertEq(usdx.balanceOf(address(excessDelegator)) , 4 * USDX_WAD);
     }
 
+    function test_harvest_with_fees_and_two_auths() public {
+        usdx.approve(address(gemA));//token
+        gemA.file("excessDelegator", address(excessDelegator));
+        gemA.rely(address(spotGemA));
+        ctoken.setReward(0);
+        ctoken.setFeeIncome(address(gemA), 4 * USDX_WAD);
+        assertEq(gemA.wards(address(me)), 1);
+        assertEq(gemA.wards(address(spotGemA)), 1);
+
+        gemA.join(me, 100 * USDX_WAD, me);
+        vat.frob(ilkA, me, me, me, 100, 100);
+        gemA.harvest();
+        assertTrue(excessDelegator.hasBeenCalled());
+        assertEq(usdx.balanceOf(address(excessDelegator)) , 4 * USDX_WAD);
+    }
 }

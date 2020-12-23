@@ -104,13 +104,9 @@ contract DssPsmCme {
     }
 
     // --- Primary Functions ---
-    function _harvest() private {
+    function harvest() external lock {
         leverageGemJoin.harvest();
         gemJoin.harvest();
-    }
-
-    function harvest() external lock {
-        _harvest();
     }
 
     function sellGem(address usr, uint256 gemAmt) external lock {
@@ -131,7 +127,6 @@ contract DssPsmCme {
         leverageDaiJoin.exit(usr, daiAmt);
 
         vat.move(address(this), address(vow), mul(fee, RAY));
-        _harvest();
 
     }
 
@@ -155,8 +150,6 @@ contract DssPsmCme {
         gemJoin.exit(usr, gemAmt);
 
         vat.move(address(this), address(vow), mul(fee, RAY));
-        _harvest();
-
     }
 
 }

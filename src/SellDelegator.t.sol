@@ -119,123 +119,98 @@ contract SellDelegotorTest is DSTest {
         sellDelegator = new SellDelegator(address(vow), address(testPsm), address(dai), address(usdx), address(bonusToken), address(testRoute));
     }
 
-    function testFail_call_without_authcall() public {
-        sellDelegator.call();
-    }
 
-    function test_call_without_monies() public {
-        sellDelegator.relyCall(me);
-        sellDelegator.call();
+    function test_processUsdc_without_usdc() public {
+        sellDelegator.processUsdc();
 
         assertTrue(!testPsm.hasBeenCalled());
+    }
+
+    function test_processComp_without_comp() public {
+        sellDelegator.processComp();
+
         assertTrue(!testRoute.hasBeenCalled());
     }
 
-    function test_call_with_usdc() public {
+    function test_processUsdc_with_usdc() public {
         usdx.transfer(address(sellDelegator), 100);
         assertEq(usdx.balanceOf(address(sellDelegator)), 100);
-        sellDelegator.relyCall(me);
-        sellDelegator.call();
+        assertEq(usdx.balanceOf(address(vow)), 0);
+        sellDelegator.processUsdc();
 
         assertTrue(testPsm.hasBeenCalled());
-        assertTrue(!testRoute.hasBeenCalled());
 
         assertEq(usdx.balanceOf(address(sellDelegator)), 0);
     }
 
-    function test_call_with_circuit_breaker() public {
-        usdx.transfer(address(sellDelegator), 100);
-        assertEq(usdx.balanceOf(address(sellDelegator)), 100);
-        sellDelegator.file("psm_circuit_breaker", true);
-        sellDelegator.relyCall(me);
-        sellDelegator.call();
-
-        assertTrue(!testPsm.hasBeenCalled());
-        assertTrue(!testRoute.hasBeenCalled());
-
-        assertEq(usdx.balanceOf(address(sellDelegator)), 100);
-    }
-
-    function test_call_with_dai() public {
+    function test_processDai_with_dai() public {
         dai.mint(address(sellDelegator), 100);
 
         assertEq(dai.balanceOf(address(sellDelegator)), 100);
-        sellDelegator.relyCall(me);
-        sellDelegator.call();
+        sellDelegator.processDai();
 
-        assertTrue(!testPsm.hasBeenCalled());
-        assertTrue(!testRoute.hasBeenCalled());
         assertEq(dai.balanceOf(address(sellDelegator)), 0);
         assertEq(dai.balanceOf(address(vow)), 100);
     }
 
-    function test_call_with_bonus() public {
+    function test_processComp_with_bonus() public {
         bonusToken.transfer(address(sellDelegator), 100);
         assertEq(bonusToken.balanceOf(address(sellDelegator)), 100);
         hevm.warp(4 hours);
 
-        sellDelegator.relyCall(me);
-        sellDelegator.call();
+        sellDelegator.processComp();
 
-        assertTrue(!testPsm.hasBeenCalled());
         assertTrue(testRoute.hasBeenCalled());
     }
 
-    function test_call_with_bonus_and_auction_time() public {
+    function test_processComp_with_bonus_and_auction_time() public {
         bonusToken.transfer(address(sellDelegator), 100);
         assertEq(bonusToken.balanceOf(address(sellDelegator)), 100);
         hevm.warp(4 hours);
 
-        sellDelegator.relyCall(me);
-        sellDelegator.call();
+        sellDelegator.processComp();
 
         assertTrue(!testPsm.hasBeenCalled());
         assertTrue(testRoute.hasBeenCalled());
-        hevm.warp(6 hours);
+        hevm.warp(4 hours + 30 minutes);
         testRoute.reset();
-        sellDelegator.call();
+        sellDelegator.processComp();
         assertTrue(!testRoute.hasBeenCalled());
 
     }
 
-    function test_call_with_bonus_and_under_max_amount() public {
+    function test_processComp_with_bonus_under_max_auction_amount() public {
         bonusToken.transfer(address(sellDelegator), 100);
         assertEq(bonusToken.balanceOf(address(sellDelegator)), 100);
         hevm.warp(4 hours);
-        sellDelegator.file("max_sell_amount", 200);
-        sellDelegator.relyCall(me);
-        sellDelegator.call();
+        sellDelegator.file("max_auction_amount", 200);
+        sellDelegator.processComp();
 
-        assertTrue(!testPsm.hasBeenCalled());
         assertTrue(testRoute.hasBeenCalled());
         assertEq(testRoute.amountOut(), 100);
     }
 
-    function test_call_with_bonus_and_over_max_amount() public {
+    function test_processComp_with_bonus_over_max_auction_amount() public {
         bonusToken.transfer(address(sellDelegator), 100);
         assertEq(bonusToken.balanceOf(address(sellDelegator)), 100);
         hevm.warp(4 hours);
-        sellDelegator.file("max_sell_amount", 50);
-        sellDelegator.relyCall(me);
-        sellDelegator.call();
+        sellDelegator.file("max_auction_amount", 50);
+        sellDelegator.processComp();
 
-        assertTrue(!testPsm.hasBeenCalled());
         assertTrue(testRoute.hasBeenCalled());
         assertEq(testRoute.amountOut(), 50);
 
     }
 
-    function test_call_with_a_different_auction_duration() public {
+    function test_processComp_with_a_different_auction_duration() public {
         bonusToken.transfer(address(sellDelegator), 100);
         assertEq(bonusToken.balanceOf(address(sellDelegator)), 100);
 
-        sellDelegator.file("max_sell_amount", 200);
-        sellDelegator.file("auction_duration", 60*60);
-        hevm.warp(2 hours);
-        sellDelegator.relyCall(me);
-        sellDelegator.call();
+        sellDelegator.file("max_auction_amount", 200);
+        sellDelegator.file("auction_duration", 30*60);
+        hevm.warp(45 minutes);
+        sellDelegator.processComp();
 
-        assertTrue(!testPsm.hasBeenCalled());
         assertTrue(testRoute.hasBeenCalled());
         assertEq(testRoute.amountOut(), 100);
 

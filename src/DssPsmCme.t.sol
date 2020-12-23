@@ -15,6 +15,7 @@ import "./DssPsmCme.sol";
 interface Hevm {
     function warp(uint256) external;
     function store(address,bytes32,bytes32) external;
+    function roll(uint256) external;
 }
 
 contract TestToken is DSToken {
@@ -23,29 +24,67 @@ contract TestToken is DSToken {
         decimals = decimals_;
     }
 
+    function mintByPass(address guy, uint wad) public {
+        balanceOf[guy] = add(balanceOf[guy], wad);
+        totalSupply = add(totalSupply, wad);
+        emit Mint(guy, wad);
+    }
+
+}
+
+contract TestDelegator {
+    bool public hasBeenCalled = false;
+
+    function call() external {
+        hasBeenCalled = true;
+    }
+
+    function reset() external {
+        hasBeenCalled = false;
+    }
 }
 
 contract TestCToken is DSMath {
 
-    DSToken underlyingToken;
+    TestToken underlyingToken;
+    uint reward;
+    uint feesIncome;
+    TestToken bonusToken;
 
-    constructor(bytes32 symbol_, uint256 decimals_, DSToken underlyingToken_) public {
+    constructor(bytes32 symbol_, uint256 decimals_, TestToken underlyingToken_, TestToken bonusToken_) public {
         decimals = decimals_;
         underlyingToken = underlyingToken_;
+        bonusToken = bonusToken_;
         symbol = symbol_;
     }
 
     function mint(uint256 mintAmount) external returns (uint256){
         mint(msg.sender, mintAmount);
         underlyingToken.burn(msg.sender, mintAmount);
+        bonusToken.mintByPass(msg.sender, reward);
         return 0;
     }
 
     function redeemUnderlying(uint256 redeemAmount) external returns (uint256){
         burn(msg.sender, redeemAmount);
         underlyingToken.mint(msg.sender, redeemAmount);
+        bonusToken.mintByPass(msg.sender, reward);
         return 0;
     }
+
+    function balanceOfUnderlying(address usr) external returns (uint256){
+        return balanceOf[usr];
+    }
+
+
+    function setReward(uint256 reward_) external {
+        reward = reward_;
+    }
+
+    function setFeeIncome(address usr, uint256 feesIncome_) external {
+        mint(usr, feesIncome_);
+    }
+
 
     //// TokenDS
 
@@ -158,6 +197,7 @@ contract User {
         psm.buyGem(address(this), wad);
     }
 
+
 }
 
 contract DssPsmCmeTest is DSTest {
@@ -172,13 +212,18 @@ contract DssPsmCmeTest is DSTest {
     TestVow vow;
     DSValue pipGemA;
     DSValue pipGemB;
-    TestToken usdx;
+
     DaiJoin daiJoinGemA;
     DaiJoin daiJoinGemB;
-    Dai dai;
 
-    TestCToken ctoken;
+    Dai dai;
+    TestToken usdx;
+    TestCToken cusdx;
     TestCToken cdai;
+    TestToken bonusToken;
+
+
+    TestDelegator excessDelegator;
 
     LendingAuthGemJoin gemA;
     LendingAuthGemJoin gemB;
@@ -227,17 +272,24 @@ contract DssPsmCmeTest is DSTest {
 
         dai = new Dai(0);
 
-        ctoken = new TestCToken("CUSDC", 8, usdx);
-        usdx.setOwner(address(ctoken));
+        bonusToken = new TestToken("XOMP", 8);
 
-        cdai = new TestCToken("CDAI", 8, DSToken(address(dai)));
+        cusdx = new TestCToken("CUSDC", 8, usdx, bonusToken);
+        usdx.setOwner(address(cusdx));
+
+        cdai = new TestCToken("CDAI", 8, TestToken(address(dai)), bonusToken);
         dai.rely(address(cdai));
 
-        gemA = new LendingAuthGemJoin(address(vat), ilkA, address(usdx), address(ctoken), address(0));
-        vat.rely(address(gemA));
+        excessDelegator = new TestDelegator();
 
-        gemB = new LendingAuthGemJoin(address(vat), ilkB, address(dai), address(cdai), address(0));
+        gemA = new LendingAuthGemJoin(address(vat), ilkA, address(usdx), address(cusdx), address(bonusToken));
+        vat.rely(address(gemA));
+        gemA.file("excessDelegator", address(excessDelegator));
+
+        gemB = new LendingAuthGemJoin(address(vat), ilkB, address(dai), address(cdai), address(bonusToken));
         vat.rely(address(gemB));
+        gemB.file("excessDelegator", address(excessDelegator));
+
 
 
         daiJoinGemA = new DaiJoin(address(vat), address(dai));
@@ -557,7 +609,6 @@ contract DssPsmCmeTest is DSTest {
         gemA.join(me, 10 * USDX_WAD, me);
     }
 
-
     uint256 constant WAD = 10 ** 18;
     function testFail_tin_over_100_percent() public {
         usdx.approve(address(gemA));
@@ -569,6 +620,31 @@ contract DssPsmCmeTest is DSTest {
         usdx.approve(address(gemA));
         psmA.file("tout", 1 * WAD);
         psmA.sellGem(me, 100 * USDX_WAD);
+    }
+
+    function testFail_deny_gov_file() public {
+        usdx.approve(address(gemA));
+        psmA.deny(me);
+        psmA.file("tout", 1 * WAD);
+        psmA.sellGem(me, 100 * USDX_WAD);
+    }
+
+    function testFail_deny_following_rely_gov_file() public {
+        usdx.approve(address(gemA));
+        psmA.deny(me);
+        psmA.rely(me);// no right
+        psmA.file("tout", 1 * WAD);
+        psmA.sellGem(me, 100 * USDX_WAD);
+    }
+
+    function test_harvest_delegator_has_been_call() public {
+        usdx.approve(address(gemA));
+        // unlock delegator call.
+        hevm.roll(20001);
+        bonusToken.mint(address(gemA), 1 * WAD);
+        psmA.harvest();
+
+        assertTrue(excessDelegator.hasBeenCalled());
     }
 
 }
