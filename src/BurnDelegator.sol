@@ -8,6 +8,7 @@ interface GemLike {
     function transfer(address, uint256) external returns (bool);
     function balanceOf(address owner) external view returns (uint);
     function approve(address guy, uint wad) external returns (bool);
+    function burn(address guy, uint wad) external;
 }
 
 interface RouteLike {
@@ -16,7 +17,7 @@ interface RouteLike {
 }
 
 
-contract SellDelegator {
+contract BurnDelegator {
 
     // --- Auth ---
     mapping (address => uint256) public wards;
@@ -26,21 +27,23 @@ contract SellDelegator {
 
     // --- Lock ---
     uint private unlocked = 1;
-    modifier lock() {require(unlocked == 1, 'SellDelegator/re-entrance');unlocked = 0;_;unlocked = 1;}
+    modifier lock() {require(unlocked == 1, 'BurnDelegator/re-entrance');unlocked = 0;_;unlocked = 1;}
 
     // --- Administration ---
     function file(bytes32 what, address data) external auth {
         if (what == "psm") psm = PsmLike(data);
         else if (what == "route") route = RouteLike(data);
-        else revert("SellDelegator/file-unrecognized-param");
+        else revert("BurnDelegator/file-unrecognized-param");
 
         emit File(what, data);
     }
 
     function file(bytes32 what, uint256 data) external auth {
-        if (what == "max_auction_amount") max_auction_amount = data;
-        else if (what == "auction_duration") auction_duration = data;
-        else revert("SellDelegator/file-unrecognized-param");
+        if (what == "max_bonus_auction_amount") max_bonus_auction_amount = data;
+        else if (what == "max_dai_auction_amount") max_dai_auction_amount = data;
+        else if (what == "bonus_auction_duration") bonus_auction_duration = data;
+        else if (what == "dai_auction_duration") dai_auction_duration = data;
+        else revert("BurnDelegator/file-unrecognized-param");
 
         emit File(what, data);
     }
@@ -65,28 +68,34 @@ contract SellDelegator {
     }
 
     // primary variable
-    address public immutable reserve;
-    PsmLike public psm;
+    GemLike public immutable mkr;
     GemLike public immutable dai;
     GemLike public immutable usdc;
     GemLike public immutable bonus_token;
     RouteLike public route;
+    PsmLike public psm;
 
-    uint256 public max_auction_amount;
-    uint256 public auction_duration;
-    uint256 public last_timestamp;
+    uint256 public max_bonus_auction_amount;
+    uint256 public max_dai_auction_amount;
+    uint256 public bonus_auction_duration;
+    uint256 public dai_auction_duration;
+    uint256 public last_dai_auction_timestamp;
+    uint256 public last_bonus_auction_timestamp;
 
     // constructor
-    constructor(address reserve_, address dai_, address usdc_, address bonus_token_) public {
+    constructor(address mkr_, address dai_, address usdc_, address bonus_token_) public {
         wards[msg.sender] = 1;
         live = 1;
 
-        reserve = reserve_;
+        mkr = GemLike(mkr_);
         dai = GemLike(dai_);
         usdc = GemLike(usdc_);
         bonus_token = GemLike(bonus_token_);
-        auction_duration = 3600;
-        max_auction_amount = 500;
+
+        bonus_auction_duration = 3600;
+        max_bonus_auction_amount = 500;
+        dai_auction_duration = 3600;
+        max_dai_auction_amount = 500;
     }
 
 
@@ -98,25 +107,35 @@ contract SellDelegator {
 
     function processDai() external lock {
         uint256 _amount_dai = dai.balanceOf(address(this));
-        if (_amount_dai > 0){
-            require(dai.approve(reserve, _amount_dai), "SellDelegator/failed-approve-dai");
-            require(dai.transfer(reserve, _amount_dai), "SellDelegator/failed-transfer-dai");
+        if ((block.timestamp - last_dai_auction_timestamp) > dai_auction_duration && _amount_dai > 0) {
+            last_dai_auction_timestamp = block.timestamp;
+            require(dai.approve(address(route), _amount_dai), "BurnDelegator/failed-approve-dai-token");
+
+            address[] memory path = new address[](2);
+            path[0] = address(dai);
+            path[1] = address(mkr);
+
+            uint256[] memory _amount_out =  route.getAmountsOut(_amount_dai, path);
+            uint256 _buy_mrk_amount = min(max_dai_auction_amount, _amount_out[_amount_out.length - 1]);
+            route.swapTokensForExactTokens(_buy_mrk_amount, uint(0), path, address(this), block.timestamp + 3600);
+            mkr.burn(address(this), mkr.balanceOf(address(this)));
         }
+
     }
 
     function processComp() external lock {
         uint256 _amount_bonus = bonus_token.balanceOf(address(this));
 
-        if ((block.timestamp - last_timestamp) > auction_duration && _amount_bonus > 0) {
-            last_timestamp = block.timestamp;
-            require(bonus_token.approve(address(route), _amount_bonus), "SellDelegator/failed-approve-bonus-token");
+        if ((block.timestamp - last_bonus_auction_timestamp) > bonus_auction_duration && _amount_bonus > 0) {
+            last_bonus_auction_timestamp = block.timestamp;
+            require(bonus_token.approve(address(route), _amount_bonus), "BurnDelegator/failed-approve-bonus-token");
 
             address[] memory path = new address[](2);
             path[0] = address(bonus_token);
             path[1] = address(dai);
 
-            uint256[] memory _amount_out =  route.getAmountsOut(bonus_token.balanceOf(address(this)), path);
-            uint256 _buy_dai_amount = min(max_auction_amount, _amount_out[_amount_out.length - 1]);
+            uint256[] memory _amount_out =  route.getAmountsOut(_amount_bonus, path);
+            uint256 _buy_dai_amount = min(max_bonus_auction_amount, _amount_out[_amount_out.length - 1]);
             route.swapTokensForExactTokens(_buy_dai_amount, uint(0), path, address(this), block.timestamp + 3600);
         }
 
@@ -126,7 +145,7 @@ contract SellDelegator {
         uint256 _amount_usdc = usdc.balanceOf(address(this));
 
         if ( _amount_usdc > 0){
-            require(usdc.approve(address(psm), _amount_usdc), "SellDelegator/failed-approve-psm");
+            require(usdc.approve(address(psm), _amount_usdc), "BurnDelegator/failed-approve-psm");
             psm.sellGem(address(this), _amount_usdc);
         }
 

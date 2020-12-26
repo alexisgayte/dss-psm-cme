@@ -37,7 +37,6 @@ contract DssPsmCme {
     AuthLendingGemJoinAbstract immutable public leverageGemJoin;
     DaiAbstract         immutable public dai;
     DaiJoinAbstract     immutable public daiJoin;
-    DaiJoinAbstract     immutable public leverageDaiJoin;
     bytes32             immutable public ilk;
     bytes32             immutable public leverageIlk;
     VowAbstract         immutable public vow;
@@ -55,13 +54,12 @@ contract DssPsmCme {
     event BuyGem(address indexed owner, uint256 value, uint256 fee);
 
     // --- Init ---
-    constructor(address gemJoin_, address daiJoin_, address leverageGemJoin_, address leverageDaiJoin_,  address vow_) public {
+    constructor(address gemJoin_, address leverageGemJoin_, address daiJoin_, address vow_) public {
         wards[msg.sender] = 1;
         emit Rely(msg.sender);
         AuthLendingGemJoinAbstract gemJoin__ = gemJoin = AuthLendingGemJoinAbstract(gemJoin_);
         AuthLendingGemJoinAbstract leverageGemJoin__ = leverageGemJoin = AuthLendingGemJoinAbstract(leverageGemJoin_);
         DaiJoinAbstract daiJoin__ = daiJoin = DaiJoinAbstract(daiJoin_);
-        leverageDaiJoin = DaiJoinAbstract(leverageDaiJoin_);
         VatAbstract vat__ = vat = VatAbstract(address(gemJoin__.vat()));
         DaiAbstract dai__ = dai = DaiAbstract(address(daiJoin__.dai()));
         ilk = gemJoin__.ilk();
@@ -69,10 +67,8 @@ contract DssPsmCme {
         vow = VowAbstract(vow_);
         to18ConversionFactor = 10 ** (18 - gemJoin__.dec());
         require(dai__.approve(daiJoin_, uint256(-1)), "DssPsmCme/failed-approve");
-        require(dai__.approve(leverageDaiJoin_, uint256(-1)), "DssPsmCme/failed-approve");
         require(dai__.approve(leverageGemJoin_, uint256(-1)), "DssPsmCme/failed-approve");
         vat__.hope(daiJoin_);
-        vat__.hope(leverageDaiJoin_);
     }
 
     // --- Math ---
@@ -124,7 +120,7 @@ contract DssPsmCme {
 
         leverageGemJoin.join(address(this), gemAmt18, address(this));
         vat.frob(leverageIlk, address(this), address(this), address(this), int256(gemAmt18), int256(gemAmt18));
-        leverageDaiJoin.exit(usr, daiAmt);
+        daiJoin.exit(usr, daiAmt);
 
         vat.move(address(this), address(vow), mul(fee, RAY));
 
@@ -141,7 +137,7 @@ contract DssPsmCme {
 
         require(dai.transferFrom(msg.sender, address(this), daiAmt), "DssPsmCme/failed-transfer");
 
-        leverageDaiJoin.join(address(this), gemAmt18);
+        daiJoin.join(address(this), gemAmt18);
         vat.frob(leverageIlk, address(this), address(this), address(this), -int256(gemAmt18), -int256(gemAmt18));
         leverageGemJoin.exit(address(this), gemAmt18);
 

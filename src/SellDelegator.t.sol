@@ -116,7 +116,9 @@ contract SellDelegotorTest is DSTest {
         vat = new TestVat();
         vow = new TestVow(address(vat), address(0), address(0));
 
-        sellDelegator = new SellDelegator(address(vow), address(testPsm), address(dai), address(usdx), address(bonusToken), address(testRoute));
+        sellDelegator = new SellDelegator(address(vow), address(dai), address(usdx), address(bonusToken));
+        sellDelegator.file("psm", address(testPsm));
+        sellDelegator.file("route", address(testRoute));
     }
 
 

@@ -213,8 +213,7 @@ contract DssPsmCmeTest is DSTest {
     DSValue pipGemA;
     DSValue pipGemB;
 
-    DaiJoin daiJoinGemA;
-    DaiJoin daiJoinGemB;
+    DaiJoin daiJoinGem;
 
     Dai dai;
     TestToken usdx;
@@ -290,28 +289,19 @@ contract DssPsmCmeTest is DSTest {
         vat.rely(address(gemB));
         gemB.file("excessDelegator", address(excessDelegator));
 
+        daiJoinGem = new DaiJoin(address(vat), address(dai));
+        vat.rely(address(daiJoinGem));
+        dai.rely(address(daiJoinGem));
 
-
-        daiJoinGemA = new DaiJoin(address(vat), address(dai));
-        vat.rely(address(daiJoinGemA));
-        dai.rely(address(daiJoinGemA));
-
-        daiJoinGemB = new DaiJoin(address(vat), address(dai));
-        vat.rely(address(daiJoinGemB));
-        dai.rely(address(daiJoinGemB));
-
-        psmA = new DssPsmCme(address(gemA), address(daiJoinGemA), address(gemB), address(daiJoinGemB), address(vow));
+        psmA = new DssPsmCme(address(gemA), address(gemB), address(daiJoinGem), address(vow));
         gemA.rely(address(psmA));
         gemA.deny(me);
 
         gemB.rely(address(psmA));
         gemB.deny(me);
 
-        daiJoinGemA.rely(address(psmA));
-        daiJoinGemA.deny(me);
-
-        daiJoinGemB.rely(address(psmA));
-        daiJoinGemB.deny(me);
+        daiJoinGem.rely(address(psmA));
+        daiJoinGem.deny(me);
 
         pipGemA = new DSValue();
         pipGemA.poke(bytes32(uint256(1 ether))); // Spot = $1
@@ -328,10 +318,8 @@ contract DssPsmCmeTest is DSTest {
         spotGemB.poke(ilkB);
 
         vat.file(ilkA, "line", rad(1000 ether));
-        vat.file("Line",       rad(1000 ether));
-
         vat.file(ilkB, "line", rad(1000 ether));
-        vat.file("Line",       rad(1000 ether));
+        vat.file("Line",       rad(2000 ether));
     }
 
     function test_sellGem_no_fee() public {
