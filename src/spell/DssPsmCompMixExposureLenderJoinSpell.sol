@@ -240,12 +240,12 @@ contract SpellAction {
         }
 
         {
-            address MCD_VAT         = CHANGELOG.getAddress("MCD_VAT");
-            address MCD_CAT         = CHANGELOG.getAddress("MCD_CAT");
-            address MCD_JUG         = CHANGELOG.getAddress("MCD_JUG");
-            address MCD_FLIP_PSM_CME_USDC_A        = CHANGELOG.getAddress("MCD_FLIP_PSM_CME_USDC_A");
-            address MCD_FLIP_PSM_CME_DAI_A        = CHANGELOG.getAddress("MCD_FLIP_PSM_CME_DAI_A");
-            address MCD_SPOT        = CHANGELOG.getAddress("MCD_SPOT");
+            address MCD_VAT                   = CHANGELOG.getAddress("MCD_VAT");
+            address MCD_CAT                   = CHANGELOG.getAddress("MCD_CAT");
+            address MCD_JUG                   = CHANGELOG.getAddress("MCD_JUG");
+            address MCD_FLIP_PSM_CME_USDC_A   = CHANGELOG.getAddress("MCD_FLIP_PSM_CME_USDC_A");
+            address MCD_FLIP_PSM_CME_DAI_A    = CHANGELOG.getAddress("MCD_FLIP_PSM_CME_DAI_A");
+            address MCD_SPOT                  = CHANGELOG.getAddress("MCD_SPOT");
 
             // Set PSM-LENDER-USDC-A generic param
             VatAbstract(MCD_VAT).file(ILK_PSM_LENDER_USDC_A, "line", 500 * THOUSAND * RAD);
@@ -281,7 +281,7 @@ contract SpellAction {
     }
 }
 
-contract DssSpell {
+contract DssPsmCompMixExposureLenderJoinSpell {
     ChainlogAbstract constant CHANGELOG =
     ChainlogAbstract(0xdA0Ab1e0017DEbCd72Be8599041a2aa3bA7e740F);
 

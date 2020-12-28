@@ -1,12 +1,8 @@
 pragma solidity 0.6.7;
 
 import "ds-test/test.sol";
-import "ds-value/value.sol";
 import "ds-token/token.sol";
-import {Vat}              from "dss/vat.sol";
-import {Spotter}          from "dss/spot.sol";
 import {Dai}              from "dss/dai.sol";
-import {Vow}              from "dss/vow.sol";
 
 import "./SellDelegator.sol";
 
@@ -49,6 +45,8 @@ contract TestRoute {
 
 }
 
+contract TestReserve {
+}
 
 contract TestPSM {
 
@@ -68,13 +66,6 @@ contract TestPSM {
     }
 }
 
-contract TestVow is Vow {
-    constructor(address vat, address flapper, address flopper)
-    public Vow(vat, flapper, flopper) {}
-}
-
-contract TestVat is Vat {
-}
 
 contract SellDelegotorTest is DSTest {
     
@@ -85,9 +76,8 @@ contract SellDelegotorTest is DSTest {
     TestToken usdx;
     Dai dai;
 
+    TestReserve reserve;
     DSToken bonusToken;
-    TestVow vow;
-    TestVat vat;
     TestPSM testPsm;
     TestRoute testRoute;
     SellDelegator sellDelegator;
@@ -106,6 +96,7 @@ contract SellDelegotorTest is DSTest {
         usdx.mint(1000);
 
         dai = new Dai(0);
+        dai.mint(address(this), 1000);
         bonusToken = new TestToken("XOMP", 8);
         bonusToken.mint(1000);
 
@@ -113,14 +104,14 @@ contract SellDelegotorTest is DSTest {
         testPsm = new TestPSM(usdx);
         usdx.setOwner(address(testPsm));
         testRoute = new TestRoute();
-        vat = new TestVat();
-        vow = new TestVow(address(vat), address(0), address(0));
+        reserve = new TestReserve();
 
-        sellDelegator = new SellDelegator(address(vow), address(dai), address(usdx), address(bonusToken));
+        sellDelegator = new SellDelegator(address(reserve), address(dai), address(usdx), address(bonusToken));
         sellDelegator.file("psm", address(testPsm));
         sellDelegator.file("route", address(testRoute));
     }
 
+    // processUsdc
 
     function test_processUsdc_without_usdc() public {
         sellDelegator.processUsdc();
@@ -128,16 +119,10 @@ contract SellDelegotorTest is DSTest {
         assertTrue(!testPsm.hasBeenCalled());
     }
 
-    function test_processComp_without_comp() public {
-        sellDelegator.processComp();
-
-        assertTrue(!testRoute.hasBeenCalled());
-    }
-
     function test_processUsdc_with_usdc() public {
         usdx.transfer(address(sellDelegator), 100);
         assertEq(usdx.balanceOf(address(sellDelegator)), 100);
-        assertEq(usdx.balanceOf(address(vow)), 0);
+        assertEq(usdx.balanceOf(address(reserve)), 0);
         sellDelegator.processUsdc();
 
         assertTrue(testPsm.hasBeenCalled());
@@ -145,14 +130,110 @@ contract SellDelegotorTest is DSTest {
         assertEq(usdx.balanceOf(address(sellDelegator)), 0);
     }
 
+    // processDai
+
+    function test_processDai_without_dai() public {
+        assertEq(dai.balanceOf(address(sellDelegator)), 0);
+        hevm.warp(4 hours);
+
+        sellDelegator.processDai();
+
+        assertEq(dai.balanceOf(address(sellDelegator)), 0);
+        assertEq(dai.balanceOf(address(reserve)), 0);
+    }
+
+    function test_processDai_with_dai_under_duration() public {
+        dai.mint(address(sellDelegator), 100);
+
+        assertEq(dai.balanceOf(address(sellDelegator)), 100);
+        hevm.warp(1 hours);
+
+        sellDelegator.processDai();
+
+        assertEq(dai.balanceOf(address(sellDelegator)), 100);
+        assertEq(dai.balanceOf(address(reserve)), 0);
+    }
+
     function test_processDai_with_dai() public {
         dai.mint(address(sellDelegator), 100);
 
         assertEq(dai.balanceOf(address(sellDelegator)), 100);
+        hevm.warp(4 hours);
+
         sellDelegator.processDai();
 
         assertEq(dai.balanceOf(address(sellDelegator)), 0);
-        assertEq(dai.balanceOf(address(vow)), 100);
+        assertEq(dai.balanceOf(address(reserve)), 100);
+    }
+
+    function test_processDai_with_dai_and_auction_time() public {
+        dai.mint(address(sellDelegator), 100);
+        assertEq(dai.balanceOf(address(sellDelegator)), 100);
+        hevm.warp(4 hours);
+
+        sellDelegator.processDai();
+
+        assertEq(dai.balanceOf(address(sellDelegator)), 0);
+        assertEq(dai.balanceOf(address(reserve)), 100);
+
+        // second round
+
+        dai.mint(address(sellDelegator), 100);
+        assertEq(dai.balanceOf(address(sellDelegator)), 100);
+
+        hevm.warp(4 hours + 30 minutes);
+
+        sellDelegator.processDai();
+        assertEq(dai.balanceOf(address(sellDelegator)), 100);
+        assertEq(dai.balanceOf(address(reserve)), 100 + 0);
+
+    }
+
+    function test_processDai_with_dai_under_max_dai_auction_amount() public {
+        dai.transfer(address(sellDelegator), 100);
+        assertEq(dai.balanceOf(address(sellDelegator)), 100);
+
+        hevm.warp(4 hours);
+        sellDelegator.file("max_dai_auction_amount", 200);
+        sellDelegator.processDai();
+
+        assertEq(dai.balanceOf(address(sellDelegator)), 0);
+        assertEq(dai.balanceOf(address(reserve)), 100);
+    }
+
+    function test_processDai_with_dai_over_max_dai_auction_amount() public {
+        dai.transfer(address(sellDelegator), 200);
+        assertEq(dai.balanceOf(address(sellDelegator)), 200);
+
+        hevm.warp(4 hours);
+        sellDelegator.file("max_dai_auction_amount", 50);
+        sellDelegator.processDai();
+
+        assertEq(dai.balanceOf(address(sellDelegator)), 150);
+        assertEq(dai.balanceOf(address(reserve)), 50);
+
+    }
+
+    function test_processDai_with_a_different_dai_auction_duration() public {
+        dai.transfer(address(sellDelegator), 100);
+        assertEq(dai.balanceOf(address(sellDelegator)), 100);
+
+        sellDelegator.file("max_dai_auction_amount", 200);
+        sellDelegator.file("dai_auction_duration", 30*60);
+        hevm.warp(45 minutes);
+        sellDelegator.processDai();
+
+        assertEq(dai.balanceOf(address(sellDelegator)), 0);
+        assertEq(dai.balanceOf(address(reserve)), 100);
+
+    }
+
+    // processComp
+
+    function test_processComp_without_comp() public {
+        sellDelegator.processComp();
+
+        assertTrue(!testRoute.hasBeenCalled());
     }
 
     function test_processComp_with_bonus() public {
@@ -181,22 +262,22 @@ contract SellDelegotorTest is DSTest {
 
     }
 
-    function test_processComp_with_bonus_under_max_auction_amount() public {
+    function test_processComp_with_bonus_under_max_bonus_auction_amount() public {
         bonusToken.transfer(address(sellDelegator), 100);
         assertEq(bonusToken.balanceOf(address(sellDelegator)), 100);
         hevm.warp(4 hours);
-        sellDelegator.file("max_auction_amount", 200);
+        sellDelegator.file("max_bonus_auction_amount", 200);
         sellDelegator.processComp();
 
         assertTrue(testRoute.hasBeenCalled());
         assertEq(testRoute.amountOut(), 100);
     }
 
-    function test_processComp_with_bonus_over_max_auction_amount() public {
+    function test_processComp_with_bonus_over_max_bonus_auction_amount() public {
         bonusToken.transfer(address(sellDelegator), 100);
         assertEq(bonusToken.balanceOf(address(sellDelegator)), 100);
         hevm.warp(4 hours);
-        sellDelegator.file("max_auction_amount", 50);
+        sellDelegator.file("max_bonus_auction_amount", 50);
         sellDelegator.processComp();
 
         assertTrue(testRoute.hasBeenCalled());
@@ -204,12 +285,12 @@ contract SellDelegotorTest is DSTest {
 
     }
 
-    function test_processComp_with_a_different_auction_duration() public {
+    function test_processComp_with_a_different_bonus_auction_duration() public {
         bonusToken.transfer(address(sellDelegator), 100);
         assertEq(bonusToken.balanceOf(address(sellDelegator)), 100);
 
-        sellDelegator.file("max_auction_amount", 200);
-        sellDelegator.file("auction_duration", 30*60);
+        sellDelegator.file("max_bonus_auction_amount", 200);
+        sellDelegator.file("bonus_auction_duration", 30*60);
         hevm.warp(45 minutes);
         sellDelegator.processComp();
 

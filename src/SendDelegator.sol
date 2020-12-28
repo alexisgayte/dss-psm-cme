@@ -16,7 +16,7 @@ interface RouteLike {
 }
 
 
-contract SellDelegator {
+contract SendDelegator {
 
     // --- Auth ---
     mapping (address => uint256) public wards;
@@ -26,13 +26,13 @@ contract SellDelegator {
 
     // --- Lock ---
     uint private unlocked = 1;
-    modifier lock() {require(unlocked == 1, 'SellDelegator/re-entrance');unlocked = 0;_;unlocked = 1;}
+    modifier lock() {require(unlocked == 1, 'SendDelegator/re-entrance');unlocked = 0;_;unlocked = 1;}
 
     // --- Administration ---
     function file(bytes32 what, address data) external auth {
         if (what == "psm") psm = PsmLike(data);
         else if (what == "route") route = RouteLike(data);
-        else revert("SellDelegator/file-unrecognized-param");
+        else revert("SendDelegator/file-unrecognized-param");
 
         emit File(what, data);
     }
@@ -42,7 +42,7 @@ contract SellDelegator {
         else if (what == "max_dai_auction_amount") max_dai_auction_amount = data;
         else if (what == "bonus_auction_duration") bonus_auction_duration = data;
         else if (what == "dai_auction_duration") dai_auction_duration = data;
-        else revert("SellDelegator/file-unrecognized-param");
+        else revert("SendDelegator/file-unrecognized-param");
 
         emit File(what, data);
     }
@@ -67,7 +67,8 @@ contract SellDelegator {
     }
 
     // primary variable
-    address public immutable reserve;
+    address public immutable dai_reserve;
+    address public immutable bonus_reserve;
     PsmLike public psm;
     GemLike public immutable dai;
     GemLike public immutable usdc;
@@ -82,11 +83,12 @@ contract SellDelegator {
     uint256 public last_bonus_auction_timestamp;
 
     // constructor
-    constructor(address reserve_, address dai_, address usdc_, address bonus_token_) public {
+    constructor(address dai_reserve_, address bonus_reserve_, address dai_, address usdc_, address bonus_token_) public {
         wards[msg.sender] = 1;
         live = 1;
 
-        reserve = reserve_;
+        dai_reserve = dai_reserve_;
+        bonus_reserve = bonus_reserve_;
         dai = GemLike(dai_);
         usdc = GemLike(usdc_);
         bonus_token = GemLike(bonus_token_);
@@ -109,8 +111,8 @@ contract SellDelegator {
         if ((block.timestamp - last_dai_auction_timestamp) > dai_auction_duration && _amount_dai > 0){
             last_dai_auction_timestamp = block.timestamp;
             uint256 _send_dai_amount = min(max_dai_auction_amount, _amount_dai);
-            require(dai.approve(reserve, _send_dai_amount), "SellDelegator/failed-approve-dai");
-            require(dai.transfer(reserve, _send_dai_amount), "SellDelegator/failed-transfer-dai");
+            require(dai.approve(dai_reserve, _send_dai_amount), "SendDelegator/failed-approve-dai");
+            require(dai.transfer(dai_reserve, _send_dai_amount), "SendDelegator/failed-transfer-dai");
         }
     }
 
@@ -119,15 +121,9 @@ contract SellDelegator {
 
         if ((block.timestamp - last_bonus_auction_timestamp) > bonus_auction_duration && _amount_bonus > 0) {
             last_bonus_auction_timestamp = block.timestamp;
-            require(bonus_token.approve(address(route), _amount_bonus), "SellDelegator/failed-approve-bonus-token");
-
-            address[] memory path = new address[](2);
-            path[0] = address(bonus_token);
-            path[1] = address(dai);
-
-            uint256[] memory _amount_out =  route.getAmountsOut(_amount_bonus, path);
-            uint256 _buy_dai_amount = min(max_bonus_auction_amount, _amount_out[_amount_out.length - 1]);
-            route.swapTokensForExactTokens(_buy_dai_amount, uint(0), path, address(this), block.timestamp + 3600);
+            uint256 _send_bonus_amount = min(max_bonus_auction_amount, _amount_bonus);
+            require(bonus_token.approve(bonus_reserve, _send_bonus_amount), "SendDelegator/failed-approve-comp");
+            require(bonus_token.transfer(bonus_reserve, _send_bonus_amount), "SendDelegator/failed-transfer-comp");
         }
 
     }
@@ -136,7 +132,7 @@ contract SellDelegator {
         uint256 _amount_usdc = usdc.balanceOf(address(this));
 
         if ( _amount_usdc > 0){
-            require(usdc.approve(address(psm), _amount_usdc), "SellDelegator/failed-approve-psm");
+            require(usdc.approve(address(psm), _amount_usdc), "SendDelegator/failed-approve-psm");
             psm.sellGem(address(this), _amount_usdc);
         }
 

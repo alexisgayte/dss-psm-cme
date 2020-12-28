@@ -156,7 +156,7 @@ contract LendingAuthGemJoin is LibNote{
     function join(address urn, uint256 wad, address _msgSender) external note auth {
         require(live == 1, "LendingAuthGemJoin/not-live");
         uint256 wad18 = mul(wad, gemTo18ConversionFactor);
-        require(int256(wad18) >= 0, "LendingLeverageAuthGemJoin/overflow");
+        require(int256(wad18) >= 0, "LendingAuthGemJoin/overflow");
         vat.slip(ilk, urn, int256(wad18));
 
         require(gem.transferFrom(_msgSender, address(this), wad), "LendingAuthGemJoin/failed-transfer-join");
@@ -166,7 +166,7 @@ contract LendingAuthGemJoin is LibNote{
 
     function exit(address guy, uint256 wad) external note {
         uint256 wad18 = mul(wad, gemTo18ConversionFactor);
-        require(int256(wad18) >= 0, "LendingLeverageAuthGemJoin/overflow");
+        require(int256(wad18) >= 0, "LendingAuthGemJoin/overflow");
         vat.slip(ilk, msg.sender, -int256(wad18));
 
         require(ltk.redeemUnderlying(wad) == 0, "LendingAuthGemJoin/failed-redemmUnderlying-exit");
