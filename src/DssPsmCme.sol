@@ -107,9 +107,7 @@ contract DssPsmCme {
 
     function sellGem(address usr, uint256 gemAmt) external lock {
         uint256 gemAmt18 = mul(gemAmt, to18ConversionFactor);
-        uint256 prefee = mul(gemAmt18, tin);
-        require(int256(prefee) >= 0, "DssPsmCme/overflow-fee-sell-gem");
-        uint256 fee = prefee / WAD;
+        uint256 fee = mul(gemAmt18, tin) / WAD;
         uint256 daiAmt = sub(gemAmt18, fee);
 
         emit SellGem(usr, gemAmt, fee);
@@ -128,9 +126,7 @@ contract DssPsmCme {
 
     function buyGem(address usr, uint256 gemAmt) external lock {
         uint256 gemAmt18 = mul(gemAmt, to18ConversionFactor);
-        uint256 prefee = mul(gemAmt18, tout);
-        require(int256(prefee) >= 0, "DssPsmCme/overflow-fee-buy-gem");
-        uint256 fee = prefee / WAD;
+        uint256 fee = mul(gemAmt18, tout) / WAD;
         uint256 daiAmt = add(gemAmt18, fee);
 
         emit BuyGem(usr, gemAmt, fee);
