@@ -624,15 +624,4 @@ contract DssPsmCmeTest is DSTest {
         psmA.file("tout", 1 * WAD);
         psmA.sellGem(me, 100 * USDX_WAD);
     }
-
-    function test_harvest_delegator_has_been_call() public {
-        usdx.approve(address(gemA));
-        // unlock delegator call.
-        hevm.roll(20001);
-        bonusToken.mint(address(gemA), 1 * WAD);
-        psmA.harvest();
-
-        assertTrue(excessDelegator.hasBeenCalled());
-    }
-
 }

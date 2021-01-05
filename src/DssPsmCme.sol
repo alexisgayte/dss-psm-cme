@@ -32,7 +32,7 @@ contract DssPsmCme {
     modifier lock() {require(unlocked == 1, 'DssPsmCme/Locked');unlocked = 0;_;unlocked = 1;}
 
 
-    VatAbstract immutable public vat;
+    VatAbstract         immutable public vat;
     AuthLendingGemJoinAbstract immutable public gemJoin;
     AuthLendingGemJoinAbstract immutable public leverageGemJoin;
     DaiAbstract         immutable public dai;
@@ -45,8 +45,9 @@ contract DssPsmCme {
 
     uint256             public tin;         // toll in [wad]
     uint256             public tout;        // toll out [wad]
+    uint256             public price;       // price [wad]
 
-    // --- Events ---
+// --- Events ---
     event Rely(address indexed user);
     event Deny(address indexed user);
     event File(bytes32 indexed what, uint256 data);
@@ -69,6 +70,7 @@ contract DssPsmCme {
         require(dai__.approve(daiJoin_, uint256(-1)), "DssPsmCme/failed-approve");
         require(dai__.approve(leverageGemJoin_, uint256(-1)), "DssPsmCme/failed-approve");
         vat__.hope(daiJoin_);
+        price = 1*WAD;
     }
 
     // --- Math ---
@@ -100,10 +102,6 @@ contract DssPsmCme {
     }
 
     // --- Primary Functions ---
-    function harvest() external lock {
-        leverageGemJoin.harvest();
-        gemJoin.harvest();
-    }
 
     function sellGem(address usr, uint256 gemAmt) external lock {
         uint256 gemAmt18 = mul(gemAmt, to18ConversionFactor);

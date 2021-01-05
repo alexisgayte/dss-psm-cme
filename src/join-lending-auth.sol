@@ -59,6 +59,11 @@ contract LendingAuthGemJoin is LibNote{
     function deny(address usr) external note auth { wards[usr] = 0; }
     modifier auth { require(wards[msg.sender] == 1); _; }
 
+    // --- Lock ---
+    uint private unlocked = 1;
+    modifier lock() {require(unlocked == 1, 'DssPsmCme/Locked');unlocked = 0;_;unlocked = 1;}
+
+
     VatLike public immutable vat;
     bytes32 public immutable ilk;
     GemLike public gem;
@@ -71,6 +76,7 @@ contract LendingAuthGemJoin is LibNote{
     uint256 public immutable gemTo18ConversionFactor;
 
     event File(bytes32 indexed what, address data);
+    event Delegate(address indexed sender, address indexed delegator, uint256 bonus, uint256 gem);
 
     constructor(address vat_, bytes32 ilk_, address gem_, address ltk_, address bonus_token_) public {
         gem = GemLike(gem_);
@@ -127,12 +133,13 @@ contract LendingAuthGemJoin is LibNote{
         }
     }
 
-    function harvest() external note auth {
+    function harvest() external note lock {
         if (address(excess_delegator) != address(0)) {
             uint256 balance = bonus_token.balanceOf(address(this));
             uint256 gems = sumGemsStored();
             uint256 wgems = gems / WAD;
             uint256 wunderlying = mul(ltk.balanceOfUnderlying(address(this)), gemTo18ConversionFactor) / WAD;
+            uint256 excess_underlying = 0;
 
             if (balance > 0) {
                 require(bonus_token.transfer(address(excess_delegator), balance), "LendingAuthGemJoin/failed-transfer-bonus-token");
@@ -140,12 +147,13 @@ contract LendingAuthGemJoin is LibNote{
 
             if (wunderlying > wgems) {
                 uint256 wexcess_underlying = sub(wunderlying, wgems);
-                uint256 excess_underlying = mul(wexcess_underlying, WAD ) / gemTo18ConversionFactor;
+                excess_underlying = mul(wexcess_underlying, WAD ) / gemTo18ConversionFactor;
                 require(ltk.redeemUnderlying(excess_underlying) == 0, "LendingAuthGemJoin/failed-redemmUnderlying-excess");
                 require(gem.transfer(address(excess_delegator), excess_underlying), "LendingAuthGemJoin/failed-transfer-excess");
             }
 
             if (balance > 0 || wunderlying > wgems) {
+                emit Delegate(msg.sender, address(excess_delegator), balance, excess_underlying);
                 excess_delegator.call();
             }
         }
