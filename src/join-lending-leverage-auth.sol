@@ -147,7 +147,7 @@ contract LendingLeverageAuthGemJoin is LibNote, DSMath {
     }
 
     // --- harvest ---
-    function harvest() external lock {
+    function harvest() external lock auth {
         address[] memory ctokens = new address[](1);
         address[] memory users   = new address[](1);
         ctokens[0] = address(ltk);
@@ -223,7 +223,7 @@ contract LendingLeverageAuthGemJoin is LibNote, DSMath {
 
     // --- Join method ---
 
-    function join(address urn, uint256 wad, address _msgSender) public note auth {
+    function join(address urn, uint256 wad, address _msgSender) public note auth lock {
         require(live == 1, "LendingLeverageAuthGemJoin/not-live");
         uint256 wad18 = mul(wad, 10 ** (18 - dec));
         require(int256(wad18) >= 0, "LendingLeverageAuthGemJoin/overflow");
@@ -236,7 +236,7 @@ contract LendingLeverageAuthGemJoin is LibNote, DSMath {
         _checkLiquidityIssue();
     }
 
-    function exit(address guy, uint256 wad) public note {
+    function exit(address guy, uint256 wad) public note lock {
         uint256 wad18 = mul(wad, gemTo18ConversionFactor);
         require(int256(wad18) >= 0, "LendingLeverageAuthGemJoin/overflow");
         vat.slip(ilk, msg.sender, -int256(wad18));

@@ -133,7 +133,7 @@ contract LendingAuthGemJoin is LibNote{
         }
     }
 
-    function harvest() external note lock {
+    function harvest() external note lock auth {
         if (address(excess_delegator) != address(0)) {
             uint256 balance = bonus_token.balanceOf(address(this));
             uint256 gems = sumGemsStored();

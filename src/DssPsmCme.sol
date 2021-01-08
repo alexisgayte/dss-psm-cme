@@ -102,6 +102,10 @@ contract DssPsmCme {
     }
 
     // --- Primary Functions ---
+    function harvest() external lock {
+        leverageGemJoin.harvest();
+        gemJoin.harvest();
+    }
 
     function sellGem(address usr, uint256 gemAmt) external lock {
         uint256 gemAmt18 = mul(gemAmt, to18ConversionFactor);
