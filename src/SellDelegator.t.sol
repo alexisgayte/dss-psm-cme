@@ -2,47 +2,18 @@ pragma solidity 0.6.7;
 
 import "ds-test/test.sol";
 import "ds-token/token.sol";
-import {Dai}              from "dss/dai.sol";
+import {Dai} from "dss/dai.sol";
+
+import "./stub/TestRoute.stub.sol";
+
+import "./testhelper/TestToken.sol";
+import "./testhelper/MkrTokenAuthority.sol";
 
 import "./SellDelegator.sol";
 
 interface Hevm {
     function warp(uint256) external;
     function store(address,bytes32,bytes32) external;
-}
-
-contract TestToken is DSToken {
-
-    constructor(bytes32 symbol_, uint256 decimals_) public DSToken(symbol_) {
-        decimals = decimals_;
-    }
-
-}
-
-contract TestRoute {
-
-    uint public amountOut;
-    bool public hasBeenCalled = false;
-
-    function swapTokensForExactTokens(uint _amountOut, uint amountInMax, address[] calldata path, address to, uint deadline) external returns (uint[] memory amounts){
-        hasBeenCalled = true;
-        amounts = new uint[](2);
-        amounts[0] = 1;
-        amounts[1] = _amountOut;
-        amountOut = _amountOut;
-
-    }
-    function getAmountsOut(uint amountIn, address[] memory path) public view returns (uint[] memory amounts) {
-        amounts = new uint[](2);
-        amounts[0] = 1;
-        amounts[1] = amountIn;
-    }
-
-    function reset() external {
-        hasBeenCalled = false;
-        amountOut = 0;
-    }
-
 }
 
 contract TestReserve {
@@ -67,7 +38,7 @@ contract TestPSM {
 }
 
 
-contract SellDelegotorTest is DSTest {
+contract SellDelegatorTest is DSTest {
     
     Hevm hevm;
 
@@ -93,17 +64,24 @@ contract SellDelegotorTest is DSTest {
         me = address(this);
 
         usdx = new TestToken("USDX", 18);
+        TokenAuthority usdxAuthority = new TokenAuthority();
+        usdx.setAuthority(DSAuthority(address(usdxAuthority)));
         usdx.mint(1000);
 
         dai = new Dai(0);
         dai.mint(address(this), 1000);
+
         bonusToken = new TestToken("XOMP", 8);
+        TokenAuthority bonusAuthority = new TokenAuthority();
+        bonusToken.setAuthority(DSAuthority(address(bonusAuthority)));
         bonusToken.mint(1000);
 
         /////
         testPsm = new TestPSM(usdx);
-        usdx.setOwner(address(testPsm));
+
         testRoute = new TestRoute();
+        dai.rely(address(testRoute));
+
         reserve = new TestReserve();
 
         sellDelegator = new SellDelegator(address(reserve), address(dai), address(usdx), address(bonusToken));
@@ -194,7 +172,7 @@ contract SellDelegotorTest is DSTest {
         assertEq(dai.balanceOf(address(sellDelegator)), 100);
 
         hevm.warp(4 hours);
-        sellDelegator.file("max_dai_auction_amount", 200);
+        sellDelegator.file("maxDaiAuctionAmount", 200);
         sellDelegator.processDai();
 
         assertEq(dai.balanceOf(address(sellDelegator)), 0);
@@ -206,7 +184,7 @@ contract SellDelegotorTest is DSTest {
         assertEq(dai.balanceOf(address(sellDelegator)), 200);
 
         hevm.warp(4 hours);
-        sellDelegator.file("max_dai_auction_amount", 50);
+        sellDelegator.file("maxDaiAuctionAmount", 50);
         sellDelegator.processDai();
 
         assertEq(dai.balanceOf(address(sellDelegator)), 150);
@@ -218,8 +196,8 @@ contract SellDelegotorTest is DSTest {
         dai.transfer(address(sellDelegator), 100);
         assertEq(dai.balanceOf(address(sellDelegator)), 100);
 
-        sellDelegator.file("max_dai_auction_amount", 200);
-        sellDelegator.file("dai_auction_duration", 30*60);
+        sellDelegator.file("maxDaiAuctionAmount", 200);
+        sellDelegator.file("daiAuctionDuration", 30*60);
         hevm.warp(45 minutes);
         sellDelegator.processDai();
 
@@ -266,7 +244,7 @@ contract SellDelegotorTest is DSTest {
         bonusToken.transfer(address(sellDelegator), 100);
         assertEq(bonusToken.balanceOf(address(sellDelegator)), 100);
         hevm.warp(4 hours);
-        sellDelegator.file("max_bonus_auction_amount", 200);
+        sellDelegator.file("maxBonusAuctionAmount", 200);
         sellDelegator.processComp();
 
         assertTrue(testRoute.hasBeenCalled());
@@ -277,7 +255,7 @@ contract SellDelegotorTest is DSTest {
         bonusToken.transfer(address(sellDelegator), 100);
         assertEq(bonusToken.balanceOf(address(sellDelegator)), 100);
         hevm.warp(4 hours);
-        sellDelegator.file("max_bonus_auction_amount", 50);
+        sellDelegator.file("maxBonusAuctionAmount", 50);
         sellDelegator.processComp();
 
         assertTrue(testRoute.hasBeenCalled());
@@ -289,8 +267,8 @@ contract SellDelegotorTest is DSTest {
         bonusToken.transfer(address(sellDelegator), 100);
         assertEq(bonusToken.balanceOf(address(sellDelegator)), 100);
 
-        sellDelegator.file("max_bonus_auction_amount", 200);
-        sellDelegator.file("bonus_auction_duration", 30*60);
+        sellDelegator.file("maxBonusAuctionAmount", 200);
+        sellDelegator.file("bonusAuctionDuration", 30*60);
         hevm.warp(45 minutes);
         sellDelegator.processComp();
 

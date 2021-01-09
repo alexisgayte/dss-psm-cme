@@ -39,10 +39,10 @@ contract BurnDelegator {
     }
 
     function file(bytes32 what, uint256 data) external auth {
-        if (what == "max_bonus_auction_amount") max_bonus_auction_amount = data;
-        else if (what == "max_dai_auction_amount") max_dai_auction_amount = data;
-        else if (what == "bonus_auction_duration") bonus_auction_duration = data;
-        else if (what == "dai_auction_duration") dai_auction_duration = data;
+        if (what == "maxBonusAuctionAmount") maxBonusAuctionAmount = data;
+        else if (what == "maxDaiAuctionAmount") maxDaiAuctionAmount = data;
+        else if (what == "bonusAuctionDuration") bonusAuctionDuration = data;
+        else if (what == "daiAuctionDuration") daiAuctionDuration = data;
         else revert("BurnDelegator/file-unrecognized-param");
 
         emit File(what, data);
@@ -71,31 +71,31 @@ contract BurnDelegator {
     GemLike public immutable mkr;
     GemLike public immutable dai;
     GemLike public immutable usdc;
-    GemLike public immutable bonus_token;
+    GemLike public immutable bonusToken;
     RouteLike public route;
     PsmLike public psm;
 
-    uint256 public max_bonus_auction_amount;
-    uint256 public max_dai_auction_amount;
-    uint256 public bonus_auction_duration;
-    uint256 public dai_auction_duration;
-    uint256 public last_dai_auction_timestamp;
-    uint256 public last_bonus_auction_timestamp;
+    uint256 public maxBonusAuctionAmount;
+    uint256 public maxDaiAuctionAmount;
+    uint256 public bonusAuctionDuration;
+    uint256 public daiAuctionDuration;
+    uint256 public lastDaiAuctionTimestamp;
+    uint256 public lastBonusAuctionTimestamp;
 
     // constructor
-    constructor(address mkr_, address dai_, address usdc_, address bonus_token_) public {
+    constructor(address mkr_, address dai_, address usdc_, address bonusToken_) public {
         wards[msg.sender] = 1;
         live = 1;
 
         mkr = GemLike(mkr_);
         dai = GemLike(dai_);
         usdc = GemLike(usdc_);
-        bonus_token = GemLike(bonus_token_);
+        bonusToken = GemLike(bonusToken_);
 
-        bonus_auction_duration = 3600;
-        max_bonus_auction_amount = 500;
-        dai_auction_duration = 3600;
-        max_dai_auction_amount = 500;
+        bonusAuctionDuration = 3600;
+        maxBonusAuctionAmount = 500;
+        daiAuctionDuration = 3600;
+        maxDaiAuctionAmount = 500;
     }
 
 
@@ -106,47 +106,47 @@ contract BurnDelegator {
     }
 
     function processDai() external lock {
-        uint256 _amount_dai = dai.balanceOf(address(this));
-        if ((block.timestamp - last_dai_auction_timestamp) > dai_auction_duration && _amount_dai > 0) {
-            last_dai_auction_timestamp = block.timestamp;
-            require(dai.approve(address(route), _amount_dai), "BurnDelegator/failed-approve-dai-token");
+        uint256 _amountDai = dai.balanceOf(address(this));
+        if ((block.timestamp - lastDaiAuctionTimestamp) > daiAuctionDuration && _amountDai > 0) {
+            lastDaiAuctionTimestamp = block.timestamp;
+            require(dai.approve(address(route), _amountDai), "BurnDelegator/failed-approve-dai-token");
 
             address[] memory path = new address[](2);
             path[0] = address(dai);
             path[1] = address(mkr);
 
-            uint256[] memory _amount_out =  route.getAmountsOut(_amount_dai, path);
-            uint256 _buy_mrk_amount = min(max_dai_auction_amount, _amount_out[_amount_out.length - 1]);
-            route.swapTokensForExactTokens(_buy_mrk_amount, uint(0), path, address(this), block.timestamp + 3600);
+            uint256[] memory _amountOut =  route.getAmountsOut(_amountDai, path);
+            uint256 _buyMrkAmount = min(maxDaiAuctionAmount, _amountOut[_amountOut.length - 1]);
+            route.swapTokensForExactTokens(_buyMrkAmount, uint(0), path, address(this), block.timestamp + 3600);
             mkr.burn(address(this), mkr.balanceOf(address(this)));
         }
 
     }
 
     function processComp() external lock {
-        uint256 _amount_bonus = bonus_token.balanceOf(address(this));
+        uint256 _amountBonus = bonusToken.balanceOf(address(this));
 
-        if ((block.timestamp - last_bonus_auction_timestamp) > bonus_auction_duration && _amount_bonus > 0) {
-            last_bonus_auction_timestamp = block.timestamp;
-            require(bonus_token.approve(address(route), _amount_bonus), "BurnDelegator/failed-approve-bonus-token");
+        if ((block.timestamp - lastBonusAuctionTimestamp) > bonusAuctionDuration && _amountBonus > 0) {
+            lastBonusAuctionTimestamp = block.timestamp;
+            require(bonusToken.approve(address(route), _amountBonus), "BurnDelegator/failed-approve-bonus-token");
 
             address[] memory path = new address[](2);
-            path[0] = address(bonus_token);
+            path[0] = address(bonusToken);
             path[1] = address(dai);
 
-            uint256[] memory _amount_out =  route.getAmountsOut(_amount_bonus, path);
-            uint256 _buy_dai_amount = min(max_bonus_auction_amount, _amount_out[_amount_out.length - 1]);
-            route.swapTokensForExactTokens(_buy_dai_amount, uint(0), path, address(this), block.timestamp + 3600);
+            uint256[] memory _amountOut =  route.getAmountsOut(_amountBonus, path);
+            uint256 _buyDaiAmount = min(maxBonusAuctionAmount, _amountOut[_amountOut.length - 1]);
+            route.swapTokensForExactTokens(_buyDaiAmount, uint(0), path, address(this), block.timestamp + 3600);
         }
 
     }
 
     function processUsdc() external lock {
-        uint256 _amount_usdc = usdc.balanceOf(address(this));
+        uint256 _amountUsdc = usdc.balanceOf(address(this));
 
-        if ( _amount_usdc > 0){
-            require(usdc.approve(address(psm), _amount_usdc), "BurnDelegator/failed-approve-psm");
-            psm.sellGem(address(this), _amount_usdc);
+        if ( _amountUsdc > 0){
+            require(usdc.approve(address(psm), _amountUsdc), "BurnDelegator/failed-approve-psm");
+            psm.sellGem(address(this), _amountUsdc);
         }
 
     }

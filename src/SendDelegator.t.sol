@@ -2,7 +2,13 @@ pragma solidity 0.6.7;
 
 import "ds-test/test.sol";
 import "ds-token/token.sol";
-import {Dai}              from "dss/dai.sol";
+import {Dai} from "dss/dai.sol";
+
+import "./stub/TestCToken.stub.sol";
+import "./stub/TestRoute.stub.sol";
+
+import "./testhelper/TestToken.sol";
+import "./testhelper/MkrTokenAuthority.sol";
 
 import "./SendDelegator.sol";
 
@@ -10,41 +16,6 @@ interface Hevm {
     function warp(uint256) external;
     function store(address,bytes32,bytes32) external;
 }
-
-contract TestToken is DSToken {
-
-    constructor(bytes32 symbol_, uint256 decimals_) public DSToken(symbol_) {
-        decimals = decimals_;
-    }
-
-}
-
-contract TestRoute {
-
-    uint public amountOut;
-    bool public hasBeenCalled = false;
-
-    function swapTokensForExactTokens(uint _amountOut, uint amountInMax, address[] calldata path, address to, uint deadline) external returns (uint[] memory amounts){
-        hasBeenCalled = true;
-        amounts = new uint[](2);
-        amounts[0] = 1;
-        amounts[1] = _amountOut;
-        amountOut = _amountOut;
-
-    }
-    function getAmountsOut(uint amountIn, address[] memory path) public view returns (uint[] memory amounts) {
-        amounts = new uint[](2);
-        amounts[0] = 1;
-        amounts[1] = amountIn;
-    }
-
-    function reset() external {
-        hasBeenCalled = false;
-        amountOut = 0;
-    }
-
-}
-
 
 contract TestPSM {
 
@@ -67,7 +38,7 @@ contract TestPSM {
 contract TestReserve {
 }
 
-contract SendDelegotorTest is DSTest {
+contract SendDelegatorTest is DSTest {
     
     Hevm hevm;
 
@@ -75,8 +46,8 @@ contract SendDelegotorTest is DSTest {
 
     TestToken usdx;
     Dai dai;
-    TestReserve dai_reserve;
-    TestReserve bonus_reserve;
+    TestReserve daiReserve;
+    TestReserve bonusReserve;
     DSToken bonusToken;
 
     TestPSM testPsm;
@@ -94,22 +65,29 @@ contract SendDelegotorTest is DSTest {
         me = address(this);
 
         usdx = new TestToken("USDX", 18);
+        TokenAuthority usdxAuthority = new TokenAuthority();
+        usdx.setAuthority(DSAuthority(address(usdxAuthority)));
         usdx.mint(1000);
 
         dai = new Dai(0);
         dai.mint(address(this), 1000);
+
         bonusToken = new TestToken("XOMP", 8);
+        TokenAuthority bonusAuthority = new TokenAuthority();
+        bonusToken.setAuthority(DSAuthority(address(bonusAuthority)));
         bonusToken.mint(1000);
 
         /////
         testPsm = new TestPSM(usdx);
-        usdx.setOwner(address(testPsm));
+
         testRoute = new TestRoute();
+        usdxAuthority.rely(address(testRoute));
+        bonusAuthority.rely(address(testRoute));
 
-        dai_reserve = new TestReserve();
-        bonus_reserve = new TestReserve();
+        daiReserve = new TestReserve();
+        bonusReserve = new TestReserve();
 
-        sendDelegator = new SendDelegator(address(dai_reserve), address(bonus_reserve), address(dai), address(usdx), address(bonusToken));
+        sendDelegator = new SendDelegator(address(daiReserve), address(bonusReserve), address(dai), address(usdx), address(bonusToken));
         sendDelegator.file("psm", address(testPsm));
         sendDelegator.file("route", address(testRoute));
     }
@@ -124,7 +102,7 @@ contract SendDelegotorTest is DSTest {
     function test_processUsdc_with_usdc() public {
         usdx.transfer(address(sendDelegator), 100);
         assertEq(usdx.balanceOf(address(sendDelegator)), 100);
-        assertEq(usdx.balanceOf(address(dai_reserve)), 0);
+        assertEq(usdx.balanceOf(address(daiReserve)), 0);
         sendDelegator.processUsdc();
 
         assertTrue(testPsm.hasBeenCalled());
@@ -144,7 +122,7 @@ contract SendDelegotorTest is DSTest {
         sendDelegator.processDai();
 
         assertEq(dai.balanceOf(address(sendDelegator)), 100);
-        assertEq(dai.balanceOf(address(dai_reserve)), 0);
+        assertEq(dai.balanceOf(address(daiReserve)), 0);
     }
 
     function test_processDai_with_dai() public {
@@ -156,7 +134,7 @@ contract SendDelegotorTest is DSTest {
         sendDelegator.processDai();
 
         assertEq(dai.balanceOf(address(sendDelegator)), 0);
-        assertEq(dai.balanceOf(address(dai_reserve)), 100);
+        assertEq(dai.balanceOf(address(daiReserve)), 100);
     }
 
     function test_processDai_with_dai_and_auction_time() public {
@@ -167,7 +145,7 @@ contract SendDelegotorTest is DSTest {
         sendDelegator.processDai();
 
         assertEq(dai.balanceOf(address(sendDelegator)), 0);
-        assertEq(dai.balanceOf(address(dai_reserve)), 100);
+        assertEq(dai.balanceOf(address(daiReserve)), 100);
 
         // second round
 
@@ -178,7 +156,7 @@ contract SendDelegotorTest is DSTest {
 
         sendDelegator.processDai();
         assertEq(dai.balanceOf(address(sendDelegator)), 100);
-        assertEq(dai.balanceOf(address(dai_reserve)), 100 + 0);
+        assertEq(dai.balanceOf(address(daiReserve)), 100 + 0);
 
     }
 
@@ -187,11 +165,11 @@ contract SendDelegotorTest is DSTest {
         assertEq(dai.balanceOf(address(sendDelegator)), 100);
 
         hevm.warp(4 hours);
-        sendDelegator.file("max_dai_auction_amount", 200);
+        sendDelegator.file("maxDaiAuctionAmount", 200);
         sendDelegator.processDai();
 
         assertEq(dai.balanceOf(address(sendDelegator)), 0);
-        assertEq(dai.balanceOf(address(dai_reserve)), 100);
+        assertEq(dai.balanceOf(address(daiReserve)), 100);
     }
 
     function test_processDai_with_dai_over_max_dai_auction_amount() public {
@@ -199,11 +177,11 @@ contract SendDelegotorTest is DSTest {
         assertEq(dai.balanceOf(address(sendDelegator)), 200);
 
         hevm.warp(4 hours);
-        sendDelegator.file("max_dai_auction_amount", 50);
+        sendDelegator.file("maxDaiAuctionAmount", 50);
         sendDelegator.processDai();
 
         assertEq(dai.balanceOf(address(sendDelegator)), 150);
-        assertEq(dai.balanceOf(address(dai_reserve)), 50);
+        assertEq(dai.balanceOf(address(daiReserve)), 50);
 
     }
 
@@ -211,13 +189,13 @@ contract SendDelegotorTest is DSTest {
         dai.transfer(address(sendDelegator), 100);
         assertEq(dai.balanceOf(address(sendDelegator)), 100);
 
-        sendDelegator.file("max_dai_auction_amount", 200);
-        sendDelegator.file("dai_auction_duration", 30*60);
+        sendDelegator.file("maxDaiAuctionAmount", 200);
+        sendDelegator.file("daiAuctionDuration", 30*60);
         hevm.warp(45 minutes);
         sendDelegator.processDai();
 
         assertEq(dai.balanceOf(address(sendDelegator)), 0);
-        assertEq(dai.balanceOf(address(dai_reserve)), 100);
+        assertEq(dai.balanceOf(address(daiReserve)), 100);
 
     }
 
@@ -229,7 +207,7 @@ contract SendDelegotorTest is DSTest {
         sendDelegator.processComp();
 
         assertEq(bonusToken.balanceOf(address(sendDelegator)), 0);
-        assertEq(bonusToken.balanceOf(address(bonus_reserve)), 0);
+        assertEq(bonusToken.balanceOf(address(bonusReserve)), 0);
     }
 
     function test_processComp_with_comp_under_duration() public {
@@ -241,7 +219,7 @@ contract SendDelegotorTest is DSTest {
         sendDelegator.processComp();
 
         assertEq(bonusToken.balanceOf(address(sendDelegator)), 100);
-        assertEq(bonusToken.balanceOf(address(bonus_reserve)), 0);
+        assertEq(bonusToken.balanceOf(address(bonusReserve)), 0);
     }
 
     function test_processComp_with_comp() public {
@@ -253,7 +231,7 @@ contract SendDelegotorTest is DSTest {
         sendDelegator.processComp();
 
         assertEq(bonusToken.balanceOf(address(sendDelegator)), 0);
-        assertEq(bonusToken.balanceOf(address(bonus_reserve)), 100);
+        assertEq(bonusToken.balanceOf(address(bonusReserve)), 100);
     }
 
     function test_processComp_with_comp_and_auction_time() public {
@@ -264,7 +242,7 @@ contract SendDelegotorTest is DSTest {
         sendDelegator.processComp();
 
         assertEq(bonusToken.balanceOf(address(sendDelegator)), 0);
-        assertEq(bonusToken.balanceOf(address(bonus_reserve)), 100);
+        assertEq(bonusToken.balanceOf(address(bonusReserve)), 100);
 
         // second round
 
@@ -275,7 +253,7 @@ contract SendDelegotorTest is DSTest {
 
         sendDelegator.processComp();
         assertEq(bonusToken.balanceOf(address(sendDelegator)), 100);
-        assertEq(bonusToken.balanceOf(address(bonus_reserve)), 100 + 0);
+        assertEq(bonusToken.balanceOf(address(bonusReserve)), 100 + 0);
 
     }
 
@@ -284,11 +262,11 @@ contract SendDelegotorTest is DSTest {
         assertEq(bonusToken.balanceOf(address(sendDelegator)), 100);
 
         hevm.warp(4 hours);
-        sendDelegator.file("max_bonus_auction_amount", 200);
+        sendDelegator.file("maxBonusAuctionAmount", 200);
         sendDelegator.processComp();
 
         assertEq(bonusToken.balanceOf(address(sendDelegator)), 0);
-        assertEq(bonusToken.balanceOf(address(bonus_reserve)), 100);
+        assertEq(bonusToken.balanceOf(address(bonusReserve)), 100);
     }
 
     function test_processComp_with_comp_over_max_bonus_auction_amount() public {
@@ -296,11 +274,11 @@ contract SendDelegotorTest is DSTest {
         assertEq(bonusToken.balanceOf(address(sendDelegator)), 200);
 
         hevm.warp(4 hours);
-        sendDelegator.file("max_bonus_auction_amount", 50);
+        sendDelegator.file("maxBonusAuctionAmount", 50);
         sendDelegator.processComp();
 
         assertEq(bonusToken.balanceOf(address(sendDelegator)), 150);
-        assertEq(bonusToken.balanceOf(address(bonus_reserve)), 50);
+        assertEq(bonusToken.balanceOf(address(bonusReserve)), 50);
 
     }
 
@@ -308,13 +286,13 @@ contract SendDelegotorTest is DSTest {
         bonusToken.transfer(address(sendDelegator), 100);
         assertEq(bonusToken.balanceOf(address(sendDelegator)), 100);
 
-        sendDelegator.file("max_bonus_auction_amount", 200);
-        sendDelegator.file("bonus_auction_duration", 30*60);
+        sendDelegator.file("maxBonusAuctionAmount", 200);
+        sendDelegator.file("bonusAuctionDuration", 30*60);
         hevm.warp(45 minutes);
         sendDelegator.processComp();
 
         assertEq(bonusToken.balanceOf(address(sendDelegator)), 0);
-        assertEq(bonusToken.balanceOf(address(bonus_reserve)), 100);
+        assertEq(bonusToken.balanceOf(address(bonusReserve)), 100);
 
     }
 

@@ -1,13 +1,13 @@
 pragma solidity 0.6.7;
 
 import "ds-test/test.sol";
-import "ds-value/value.sol";
 import "ds-token/token.sol";
-import {Vat}              from "dss/vat.sol";
-import {Spotter}          from "dss/spot.sol";
-import {Dai}              from "dss/dai.sol";
-import {Vow}              from "dss/vow.sol";
-import {DaiJoin}          from "dss/join.sol";
+import {Dai} from "dss/dai.sol";
+
+import "./stub/TestRoute.stub.sol";
+
+import "./testhelper/TestToken.sol";
+import "./testhelper/MkrTokenAuthority.sol";
 
 import "./BurnDelegator.sol";
 
@@ -15,41 +15,6 @@ interface Hevm {
     function warp(uint256) external;
     function store(address,bytes32,bytes32) external;
 }
-
-contract TestToken is DSToken {
-
-    constructor(bytes32 symbol_, uint256 decimals_) public DSToken(symbol_) {
-        decimals = decimals_;
-    }
-
-}
-
-contract TestRoute {
-
-    uint public amountOut;
-    bool public hasBeenCalled = false;
-
-    function swapTokensForExactTokens(uint _amountOut, uint amountInMax, address[] calldata path, address to, uint deadline) external returns (uint[] memory amounts){
-        hasBeenCalled = true;
-        amounts = new uint[](2);
-        amounts[0] = 1;
-        amounts[1] = _amountOut;
-        amountOut = _amountOut;
-
-    }
-    function getAmountsOut(uint amountIn, address[] memory path) public view returns (uint[] memory amounts) {
-        amounts = new uint[](2);
-        amounts[0] = 1;
-        amounts[1] = amountIn;
-    }
-
-    function reset() external {
-        hasBeenCalled = false;
-        amountOut = 0;
-    }
-
-}
-
 
 contract TestPSM {
 
@@ -69,52 +34,6 @@ contract TestPSM {
     }
 }
 
-contract TestVow is Vow {
-    constructor(address vat, address flapper, address flopper)
-    public Vow(vat, flapper, flopper) {}
-}
-
-contract TestVat is Vat {
-}
-
-contract MkrAuthority {
-    address public root;
-    modifier sudo { require(msg.sender == root); _; }
-    event LogSetRoot(address indexed newRoot);
-    function setRoot(address usr) public sudo {
-        root = usr;
-        emit LogSetRoot(usr);
-    }
-
-    mapping (address => uint) public wards;
-    event LogRely(address indexed usr);
-    function rely(address usr) public sudo { wards[usr] = 1; emit LogRely(usr); }
-    event LogDeny(address indexed usr);
-    function deny(address usr) public sudo { wards[usr] = 0; emit LogDeny(usr); }
-
-    constructor() public {
-        root = msg.sender;
-    }
-
-    // bytes4(keccak256(abi.encodePacked('burn(uint256)')))
-    bytes4 constant burn = bytes4(0x42966c68);
-    // bytes4(keccak256(abi.encodePacked('burn(address,uint256)')))
-    bytes4 constant burnFrom = bytes4(0x9dc29fac);
-    // bytes4(keccak256(abi.encodePacked('mint(address,uint256)')))
-    bytes4 constant mint = bytes4(0x40c10f19);
-
-    function canCall(address src, address, bytes4 sig)
-    public view returns (bool)
-    {
-        if (sig == burn || sig == burnFrom || src == root) {
-            return true;
-        } else if (sig == mint) {
-            return (wards[src] == 1);
-        } else {
-            return false;
-        }
-    }
-}
 
 contract SellDelegotorTest is DSTest {
     
@@ -125,14 +44,11 @@ contract SellDelegotorTest is DSTest {
     TestToken usdx;
     Dai dai;
 
-    DSToken mkr;
-    DSToken bonusToken;
-    TestVow vow;
-    TestVat vat;
+    TestToken mkr;
+    TestToken bonusToken;
     TestPSM testPsm;
     TestRoute testRoute;
     BurnDelegator burnDelegator;
-    DaiJoin daiJoin;
 
     bytes32 constant ilk = "usdx";
 
@@ -151,31 +67,29 @@ contract SellDelegotorTest is DSTest {
         me = address(this);
 
         usdx = new TestToken("USDX", 18);
+        TokenAuthority usdxAuthority = new TokenAuthority();
+        usdx.setAuthority(DSAuthority(address(usdxAuthority)));
         usdx.mint(1000);
 
         dai = new Dai(0);
         dai.mint(address(this), 1000);
+
         bonusToken = new TestToken("XOMP", 8);
+        TokenAuthority bonusAuthority = new TokenAuthority();
+        bonusToken.setAuthority(DSAuthority(address(bonusAuthority)));
         bonusToken.mint(1000);
 
         mkr = new TestToken("MKR", 8);
-        MkrAuthority mkrAuthority = new MkrAuthority();
+        TokenAuthority mkrAuthority = new TokenAuthority();
         mkr.setAuthority(DSAuthority(address(mkrAuthority)));
         mkr.mint(1000);
+
         /////
         testPsm = new TestPSM(usdx);
-        usdx.setOwner(address(testPsm));
+
         testRoute = new TestRoute();
-        vat = new TestVat();
-        vow = new TestVow(address(vat), address(0), address(0));
-
-        daiJoin = new DaiJoin(address(vat), address(dai));
-        vat.rely(address(daiJoin));
-        dai.rely(address(daiJoin));
-
-        vat.init(ilk);
-        vat.file(ilk, "line", rad(1000 ether));
-        vat.file("Line",       rad(1000 ether));
+        dai.rely(address(testRoute));
+        mkrAuthority.rely(address(testRoute));
 
         burnDelegator = new BurnDelegator(address(mkr), address(dai), address(usdx), address(bonusToken));
         burnDelegator.file("psm", address(testPsm));
@@ -199,7 +113,6 @@ contract SellDelegotorTest is DSTest {
     function test_processUsdc_with_usdc() public {
         usdx.transfer(address(burnDelegator), 100);
         assertEq(usdx.balanceOf(address(burnDelegator)), 100);
-        assertEq(usdx.balanceOf(address(vow)), 0);
         burnDelegator.processUsdc();
 
         assertTrue(testPsm.hasBeenCalled());
@@ -241,7 +154,7 @@ contract SellDelegotorTest is DSTest {
         mkr.transfer(address(burnDelegator), 200);
         assertEq(dai.balanceOf(address(burnDelegator)), 100);
         hevm.warp(4 hours);
-        burnDelegator.file("max_dai_auction_amount", 200);
+        burnDelegator.file("maxDaiAuctionAmount", 200);
         burnDelegator.processDai();
 
         assertTrue(testRoute.hasBeenCalled());
@@ -253,7 +166,7 @@ contract SellDelegotorTest is DSTest {
         mkr.transfer(address(burnDelegator), 200);
         assertEq(dai.balanceOf(address(burnDelegator)), 100);
         hevm.warp(4 hours);
-        burnDelegator.file("max_dai_auction_amount", 50);
+        burnDelegator.file("maxDaiAuctionAmount", 50);
         burnDelegator.processDai();
 
         assertTrue(testRoute.hasBeenCalled());
@@ -266,8 +179,8 @@ contract SellDelegotorTest is DSTest {
         mkr.transfer(address(burnDelegator), 200);
         assertEq(dai.balanceOf(address(burnDelegator)), 100);
 
-        burnDelegator.file("max_dai_auction_amount", 200);
-        burnDelegator.file("dai_auction_duration", 30*60);
+        burnDelegator.file("maxDaiAuctionAmount", 200);
+        burnDelegator.file("daiAuctionDuration", 30*60);
         hevm.warp(45 minutes);
         burnDelegator.processDai();
 
@@ -306,7 +219,7 @@ contract SellDelegotorTest is DSTest {
         bonusToken.transfer(address(burnDelegator), 100);
         assertEq(bonusToken.balanceOf(address(burnDelegator)), 100);
         hevm.warp(4 hours);
-        burnDelegator.file("max_bonus_auction_amount", 200);
+        burnDelegator.file("maxBonusAuctionAmount", 200);
         burnDelegator.processComp();
 
         assertTrue(testRoute.hasBeenCalled());
@@ -317,7 +230,7 @@ contract SellDelegotorTest is DSTest {
         bonusToken.transfer(address(burnDelegator), 100);
         assertEq(bonusToken.balanceOf(address(burnDelegator)), 100);
         hevm.warp(4 hours);
-        burnDelegator.file("max_bonus_auction_amount", 50);
+        burnDelegator.file("maxBonusAuctionAmount", 50);
         burnDelegator.processComp();
 
         assertTrue(testRoute.hasBeenCalled());
@@ -329,8 +242,8 @@ contract SellDelegotorTest is DSTest {
         bonusToken.transfer(address(burnDelegator), 100);
         assertEq(bonusToken.balanceOf(address(burnDelegator)), 100);
 
-        burnDelegator.file("max_bonus_auction_amount", 200);
-        burnDelegator.file("bonus_auction_duration", 30*60);
+        burnDelegator.file("maxBonusAuctionAmount", 200);
+        burnDelegator.file("bonusAuctionDuration", 30*60);
         hevm.warp(45 minutes);
         burnDelegator.processComp();
 
