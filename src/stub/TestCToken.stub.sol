@@ -3,7 +3,7 @@ pragma solidity 0.6.7;
 import "ds-math/math.sol";
 import "ds-token/token.sol";
 
-contract TestCToken is DSMath {
+contract TestCToken is DSMath, DSAuth {
 
     DSToken underlyingToken;
     uint reward;

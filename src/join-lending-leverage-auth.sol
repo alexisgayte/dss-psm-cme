@@ -93,7 +93,7 @@ contract LendingLeverageAuthGemJoin is LibNote, DSMath {
         dai = GemLike(dai_);
 
         dec = gem.decimals();
-        require(dec < 18, "LendingLeverageAuthGemJoin/decimals-18-or-higher");
+        require(dec <= 18, "LendingLeverageAuthGemJoin/decimals-18-or-higher");
         gemTo18ConversionFactor = 10 ** (18 - dec);
 
         total = 0;
