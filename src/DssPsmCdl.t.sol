@@ -127,7 +127,7 @@ contract DssPsmCdlTest is DSTest {
 
 
         gemA = new LendingAuthGemJoin(address(vat), ilkA, address(dai), address(cdai), address(bonusToken));
-        gemA.file("excessDelegator", address(excessDelegator));
+        gemA.file("excess_delegator", address(excessDelegator));
 
         vat.rely(address(gemA));
 
@@ -138,10 +138,10 @@ contract DssPsmCdlTest is DSTest {
         bonusAuthority.rely(address(comptroller));
 
         gemB = new LendingLeverageAuthGemJoin(address(vat), ilkB, address(dai), address(cdai), address(bonusToken), address(comptroller), address(dai));
-        gemB.file("cfTarget", 70 * WAD / 100);
+        gemB.file("cf_target", 70 * WAD / 100);
         gemB.file("route", address(testRoute));
-        gemB.file("cfMax", 75 * WAD / 100);
-        gemB.file("excessDelegator", address(excessDelegator));
+        gemB.file("cf_max", 75 * WAD / 100);
+        gemB.file("excess_delegator", address(excessDelegator));
 
         vat.rely(address(gemB));
 

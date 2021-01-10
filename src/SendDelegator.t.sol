@@ -165,7 +165,7 @@ contract SendDelegatorTest is DSTest {
         assertEq(dai.balanceOf(address(sendDelegator)), 100);
 
         hevm.warp(4 hours);
-        sendDelegator.file("maxDaiAuctionAmount", 200);
+        sendDelegator.file("max_dai_auction_amount", 200);
         sendDelegator.processDai();
 
         assertEq(dai.balanceOf(address(sendDelegator)), 0);
@@ -177,7 +177,7 @@ contract SendDelegatorTest is DSTest {
         assertEq(dai.balanceOf(address(sendDelegator)), 200);
 
         hevm.warp(4 hours);
-        sendDelegator.file("maxDaiAuctionAmount", 50);
+        sendDelegator.file("max_dai_auction_amount", 50);
         sendDelegator.processDai();
 
         assertEq(dai.balanceOf(address(sendDelegator)), 150);
@@ -189,8 +189,8 @@ contract SendDelegatorTest is DSTest {
         dai.transfer(address(sendDelegator), 100);
         assertEq(dai.balanceOf(address(sendDelegator)), 100);
 
-        sendDelegator.file("maxDaiAuctionAmount", 200);
-        sendDelegator.file("daiAuctionDuration", 30*60);
+        sendDelegator.file("max_dai_auction_amount", 200);
+        sendDelegator.file("dai_auction_duration", 30*60);
         hevm.warp(45 minutes);
         sendDelegator.processDai();
 
@@ -262,7 +262,7 @@ contract SendDelegatorTest is DSTest {
         assertEq(bonusToken.balanceOf(address(sendDelegator)), 100);
 
         hevm.warp(4 hours);
-        sendDelegator.file("maxBonusAuctionAmount", 200);
+        sendDelegator.file("max_bonus_auction_amount", 200);
         sendDelegator.processComp();
 
         assertEq(bonusToken.balanceOf(address(sendDelegator)), 0);
@@ -274,7 +274,7 @@ contract SendDelegatorTest is DSTest {
         assertEq(bonusToken.balanceOf(address(sendDelegator)), 200);
 
         hevm.warp(4 hours);
-        sendDelegator.file("maxBonusAuctionAmount", 50);
+        sendDelegator.file("max_bonus_auction_amount", 50);
         sendDelegator.processComp();
 
         assertEq(bonusToken.balanceOf(address(sendDelegator)), 150);
@@ -286,8 +286,8 @@ contract SendDelegatorTest is DSTest {
         bonusToken.transfer(address(sendDelegator), 100);
         assertEq(bonusToken.balanceOf(address(sendDelegator)), 100);
 
-        sendDelegator.file("maxBonusAuctionAmount", 200);
-        sendDelegator.file("bonusAuctionDuration", 30*60);
+        sendDelegator.file("max_bonus_auction_amount", 200);
+        sendDelegator.file("bonus_auction_duration", 30*60);
         hevm.warp(45 minutes);
         sendDelegator.processComp();
 

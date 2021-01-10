@@ -38,10 +38,10 @@ contract SendDelegator {
     }
 
     function file(bytes32 what, uint256 data) external auth {
-        if (what == "maxBonusAuctionAmount") maxBonusAuctionAmount = data;
-        else if (what == "maxDaiAuctionAmount") maxDaiAuctionAmount = data;
-        else if (what == "bonusAuctionDuration") bonusAuctionDuration = data;
-        else if (what == "daiAuctionDuration") daiAuctionDuration = data;
+        if (what == "max_bonus_auction_amount") maxBonusAuctionAmount = data;
+        else if (what == "max_dai_auction_amount") maxDaiAuctionAmount = data;
+        else if (what == "bonus_auction_duration") bonusAuctionDuration = data;
+        else if (what == "dai_auction_duration") daiAuctionDuration = data;
         else revert("SendDelegator/file-unrecognized-param");
 
         emit File(what, data);

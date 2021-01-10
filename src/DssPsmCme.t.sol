@@ -169,12 +169,12 @@ contract DssPsmCmeTest is DSTest {
 
 
         gemA = new LendingAuthGemJoin(address(vat), ilkA, address(usdx), address(cusdx), address(bonusToken));
-        gemA.file("excessDelegator", address(excessDelegator));
+        gemA.file("excess_delegator", address(excessDelegator));
 
         vat.rely(address(gemA));
 
         gemB = new LendingAuthGemJoin(address(vat), ilkB, address(dai), address(cdai), address(bonusToken));
-        gemB.file("excessDelegator", address(excessDelegator));
+        gemB.file("excess_delegator", address(excessDelegator));
 
         vat.rely(address(gemB));
 

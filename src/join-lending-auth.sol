@@ -92,7 +92,7 @@ contract LendingAuthGemJoin is LibNote{
 
     // --- Administration ---
     function file(bytes32 what, address data) external auth {
-        if (what == "excessDelegator") excessDelegator = CalLike(data);
+        if (what == "excess_delegator") excessDelegator = CalLike(data);
         else revert("LendingAuthGemJoin/file-unrecognized-param");
 
         emit File(what, data);

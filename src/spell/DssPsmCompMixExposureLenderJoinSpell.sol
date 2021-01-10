@@ -146,8 +146,8 @@ contract SpellAction {
             // link and authorized Join lender to excessDelegator
             LendingAuthGemJoin(MCD_JOIN_LENDER_BURN_DELEGATOR).rely(address(MCD_JOIN_LENDER_USDC_A));
             LendingAuthGemJoin(MCD_JOIN_LENDER_BURN_DELEGATOR).rely(address(MCD_JOIN_LENDER_DAI_A));
-            LendingAuthGemJoin(MCD_JOIN_LENDER_USDC_A).file("excessDelegator", address(MCD_JOIN_LENDER_BURN_DELEGATOR));
-            LendingAuthGemJoin(MCD_JOIN_LENDER_DAI_A).file("excessDelegator", address(MCD_JOIN_LENDER_BURN_DELEGATOR));
+            LendingAuthGemJoin(MCD_JOIN_LENDER_USDC_A).file("excess_delegator", address(MCD_JOIN_LENDER_BURN_DELEGATOR));
+            LendingAuthGemJoin(MCD_JOIN_LENDER_DAI_A).file("excess_delegator", address(MCD_JOIN_LENDER_BURN_DELEGATOR));
 
             // Allow PSM-CME to join
             LendingAuthGemJoin(MCD_JOIN_LENDER_USDC_A).rely(address(MCD_PSM_CME_COMP));

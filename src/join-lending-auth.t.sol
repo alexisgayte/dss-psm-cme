@@ -170,7 +170,7 @@ contract JoinLendingAuthTest is DSTest {
     function test_harvest_with_bonus() public {
         usdx.approve(address(gemA));//token
 
-        gemA.file("excessDelegator", address(excessDelegator));
+        gemA.file("excess_delegator", address(excessDelegator));
         ctoken.setReward(1);
 
         gemA.join(me, 100 * USDX_WAD, me);
@@ -186,7 +186,7 @@ contract JoinLendingAuthTest is DSTest {
     function test_harvest_with_no_monies() public {
         usdx.approve(address(gemA));//token
 
-        gemA.file("excessDelegator", address(excessDelegator));
+        gemA.file("excess_delegator", address(excessDelegator));
         ctoken.setReward(0);
 
         gemA.join(me, 100 * USDX_WAD, me);
@@ -199,7 +199,7 @@ contract JoinLendingAuthTest is DSTest {
 
     function test_harvest_with_fees() public {
         usdx.approve(address(gemA));//token
-        gemA.file("excessDelegator", address(excessDelegator));
+        gemA.file("excess_delegator", address(excessDelegator));
         ctoken.setReward(0);
         ctoken.addFeeIncome(address(gemA), 4 * USDX_WAD);
 
@@ -213,7 +213,7 @@ contract JoinLendingAuthTest is DSTest {
 
     function test_harvest_with_fees_and_bonus() public {
         usdx.approve(address(gemA));//token
-        gemA.file("excessDelegator", address(excessDelegator));
+        gemA.file("excess_delegator", address(excessDelegator));
         ctoken.setReward(1);
         ctoken.addFeeIncome(address(gemA), 4 * USDX_WAD);
 
@@ -227,7 +227,7 @@ contract JoinLendingAuthTest is DSTest {
 
     function test_harvest_with_fees_and_two_auths() public {
         usdx.approve(address(gemA));//token
-        gemA.file("excessDelegator", address(excessDelegator));
+        gemA.file("excess_delegator", address(excessDelegator));
         gemA.rely(address(spotGemA));
         ctoken.setReward(0);
         ctoken.addFeeIncome(address(gemA), 4 * USDX_WAD);

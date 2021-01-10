@@ -110,23 +110,23 @@ contract LendingLeverageAuthGemJoin is LibNote, DSMath {
 
     // --- Administration ---
     function file(bytes32 what, address data) external auth {
-        if (what == "excessDelegator") excessDelegator = CalLike(data);
+        if (what == "excess_delegator") excessDelegator = CalLike(data);
         else if (what == "route") route = RouteLike(data);
         else revert("LendingLeverageAuthGemJoin/file-unrecognized-param");
         emit File(what, data);
     }
 
     function file(bytes32 what, uint256 data) external auth {
-        if (what == "cfTarget")  {
+        if (what == "cf_target")  {
             require(data < WAD , "DssPsmCme/more-100-percent");
             cfTarget = data;
         }
-        else if (what == "cfMax") {
+        else if (what == "cf_max") {
             require(data < WAD , "DssPsmCme/more-100-percent");
             cfMax = data;
         }
-        else if (what == "maxBonusAuctionAmount") maxBonusAuctionAmount = data;
-        else if (what == "bonusAuctionDuration") bonusAuctionDuration = data;
+        else if (what == "max_bonus_auction_amount") maxBonusAuctionAmount = data;
+        else if (what == "bonus_auction_duration") bonusAuctionDuration = data;
         else revert("LendingLeverageAuthGemJoin/file-unrecognized-param");
 
         emit File(what, data);
