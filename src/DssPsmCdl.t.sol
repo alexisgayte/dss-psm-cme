@@ -137,7 +137,7 @@ contract DssPsmCdlTest is DSTest {
         comptroller = new TestComptroller(cdai , bonusToken);
         bonusAuthority.rely(address(comptroller));
 
-        gemB = new LendingLeverageAuthGemJoin(address(vat), ilkB, address(dai), address(cdai), address(bonusToken), address(comptroller), address(dai));
+        gemB = new LendingLeverageAuthGemJoin(address(vat), ilkB, address(dai), address(cdai), address(bonusToken), address(comptroller));
         gemB.file("cf_target", 70 * WAD / 100);
         gemB.file("route", address(testRoute));
         gemB.file("cf_max", 75 * WAD / 100);

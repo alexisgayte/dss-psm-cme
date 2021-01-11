@@ -58,7 +58,6 @@ contract LendingLeverageAuthGemJoin is LibNote, DSMath {
     VatLike public vat;
     bytes32 public ilk;
     GemLike public gem;
-    GemLike public dai;
     uint256 public dec;
     uint256 public live;  // Access Flag
     LTKLike public ltk;
@@ -71,6 +70,7 @@ contract LendingLeverageAuthGemJoin is LibNote, DSMath {
     uint256 public maxBonusAuctionAmount;
     uint256 public bonusAuctionDuration;
     uint256 public lastBonusAuctionTimestamp;
+    uint256 public excessMargin;
 
     uint256 public cfTarget;
     uint256 public cfMax;
@@ -80,7 +80,7 @@ contract LendingLeverageAuthGemJoin is LibNote, DSMath {
     event File(bytes32 indexed what, uint256 data);
     event Delegate(address indexed sender, address indexed delegator, uint256 bonus, uint256 gem);
 
-    constructor(address vat_, bytes32 ilk_, address gem_, address ltk_, address bonusToken_, address lender_, address dai_) public {
+    constructor(address vat_, bytes32 ilk_, address gem_, address ltk_, address bonusToken_, address lender_) public {
         gem = GemLike(gem_);
         wards[msg.sender] = 1;
         live = 1;
@@ -90,7 +90,6 @@ contract LendingLeverageAuthGemJoin is LibNote, DSMath {
         excessDelegator = CalLike(0);
         bonusToken = GemLike(bonusToken_);
         lender = ComLike(lender_);
-        dai = GemLike(dai_);
 
         dec = gem.decimals();
         require(dec <= 18, "LendingLeverageAuthGemJoin/decimals-18-or-higher");
@@ -99,6 +98,7 @@ contract LendingLeverageAuthGemJoin is LibNote, DSMath {
         total = 0;
         bonusAuctionDuration = 3600;
         maxBonusAuctionAmount = 500;
+        excessMargin = 500;
 
         address[] memory ctokens = new address[](1);
         ctokens[0] = ltk_;
@@ -127,6 +127,7 @@ contract LendingLeverageAuthGemJoin is LibNote, DSMath {
         }
         else if (what == "max_bonus_auction_amount") maxBonusAuctionAmount = data;
         else if (what == "bonus_auction_duration") bonusAuctionDuration = data;
+        else if (what == "excess_margin") excessMargin = data;
         else revert("LendingLeverageAuthGemJoin/file-unrecognized-param");
 
         emit File(what, data);
@@ -157,59 +158,63 @@ contract LendingLeverageAuthGemJoin is LibNote, DSMath {
 
     function _harvest() private {
 
-        uint256 gemsAdjusted = mul(total, 1001)/1000; // we keep 0.1% for dust
-        uint256 actualUnderlying = sub(ltk.balanceOfUnderlying(address(this)), ltk.borrowBalanceStored(address(this)));
+        uint256 _gemsAdjusted = mul(total, 1001)/1000; // we keep 0.1% for dust
+        uint256 _actualUnderlying = sub(ltk.balanceOfUnderlying(address(this)), ltk.borrowBalanceStored(address(this)));
 
-        if (actualUnderlying < gemsAdjusted) {
-            _recover(actualUnderlying, gemsAdjusted);
-        } else if (actualUnderlying > gemsAdjusted){
-            _callDelegator(actualUnderlying, gemsAdjusted);
+        if (_actualUnderlying < _gemsAdjusted) {
+            _recover(_actualUnderlying, _gemsAdjusted);
         } else {
+            _callDelegator(_actualUnderlying, _gemsAdjusted);
         }
     }
 
-    function _recover(uint256 actualUnderlying, uint256 gemsAdjusted) private {
+    function _recover(uint256 actualUnderlying_, uint256 gemsAdjusted_) private {
 
-        uint256 balance = bonusToken.balanceOf(address(this));
-        if ((block.timestamp - lastBonusAuctionTimestamp) > bonusAuctionDuration && balance > 0) {
+        uint256 _balance = bonusToken.balanceOf(address(this));
+        if ((block.timestamp - lastBonusAuctionTimestamp) > bonusAuctionDuration && _balance > 0) {
             lastBonusAuctionTimestamp = block.timestamp;
-            uint256 missingUnderlying = sub(gemsAdjusted, actualUnderlying);
+            uint256 _missingUnderlying = sub(gemsAdjusted_, actualUnderlying_);
+            _missingUnderlying = add(_missingUnderlying, excessMargin);
 
             address[] memory path = new address[](2);
             path[0] = address(bonusToken);
             path[1] = address(gem);
 
-            uint256[] memory _amountOut =  route.getAmountsOut(balance, path);
-            uint256 _buyDaiAmount = min(missingUnderlying, _amountOut[_amountOut.length - 1]);
-            _buyDaiAmount = min(maxBonusAuctionAmount, _buyDaiAmount);
-            require(bonusToken.approve(address(route), _buyDaiAmount), "LendingLeverageAuthGemJoin/failed-approve-bonus-token");
-            route.swapTokensForExactTokens(_buyDaiAmount, uint(0), path, address(this), block.timestamp + 3600);
-            require(ltk.mint(_buyDaiAmount) == 0, "LendingLeverageAuthGemJoin/failed-mint");
+            uint256[] memory _amountOut =  route.getAmountsOut(_balance, path);
+            uint256 _buyGemAmount = min(_missingUnderlying, _amountOut[_amountOut.length - 1]);
+            _buyGemAmount = min(maxBonusAuctionAmount, _buyGemAmount);
+            require(bonusToken.approve(address(route), _buyGemAmount), "LendingLeverageAuthGemJoin/failed-approve-bonus-token");
+            route.swapTokensForExactTokens(_buyGemAmount, uint(0), path, address(this), block.timestamp + 3600);
+            require(ltk.mint(_buyGemAmount) == 0, "LendingLeverageAuthGemJoin/failed-mint");
 
             _updateLeverage(0);
-
-            balance = bonusToken.balanceOf(address(this));
         }
 
     }
 
-    function _callDelegator(uint256 actualUnderlying, uint256 gemsAdjusted) private {
+    function _callDelegator(uint256 actualUnderlying_, uint256 gemsAdjusted_) private {
         if (address(excessDelegator) != address(0)) {
-            uint256 balance = bonusToken.balanceOf(address(this));
+            uint256 _balance = bonusToken.balanceOf(address(this));
+            uint256 _excessUnderlying = 0;
+            uint256 _gemsAdjustedMargin = add(gemsAdjusted_, excessMargin);
 
-            uint256 excessUnderlying = sub(actualUnderlying, gemsAdjusted);
+            if (actualUnderlying_ > _gemsAdjustedMargin) {
+                _excessUnderlying = sub(actualUnderlying_, _gemsAdjustedMargin);
 
-            _updateLeverage(excessUnderlying);
+                _updateLeverage(_excessUnderlying);
 
-            require(ltk.redeemUnderlying(excessUnderlying) == 0, "LendingLeverageAuthGemJoin/failed-redemmUnderlying-excess");
-            require(gem.transfer(address(excessDelegator), excessUnderlying), "LendingLeverageAuthGemJoin/failed-transfer-excess");
-
-            if (balance > 0) {
-                require(bonusToken.transfer(address(excessDelegator), balance), "LendingLeverageAuthGemJoin/failed-transfer-bonus-token");
+                require(ltk.redeemUnderlying(_excessUnderlying) == 0, "LendingLeverageAuthGemJoin/failed-redemmUnderlying-excess");
+                require(gem.transfer(address(excessDelegator), _excessUnderlying), "LendingLeverageAuthGemJoin/failed-transfer-excess");
             }
 
-            emit Delegate(msg.sender, address(excessDelegator), balance, excessUnderlying);
-            excessDelegator.call();
+            if (_balance > 0) {
+                require(bonusToken.transfer(address(excessDelegator), _balance), "LendingLeverageAuthGemJoin/failed-transfer-bonus-token");
+            }
+
+            if (actualUnderlying_ > _gemsAdjustedMargin || _balance > 0) {
+                emit Delegate(msg.sender, address(excessDelegator), _balance, _excessUnderlying);
+                excessDelegator.call();
+            }
         }
     }
 

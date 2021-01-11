@@ -67,8 +67,8 @@ contract SpellAction {
     address constant UNISWAP_ROUTER_V2  = 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D;
 
 
-    bytes32 constant ILK_PSM_LENDER_USDC_A     = "PSM-LENDER-USDC-A";
-    bytes32 constant ILK_PSM_LENDER_DAI_A      = "PSM-LENDER-DAI-A";
+    bytes32 constant ILK_PSM_COMP_USDC_A     = "PSM-COMP-USDC-A";
+    bytes32 constant ILK_PSM_COMP_DAI_A      = "PSM-COMP-DAI-A";
 
 // decimals & precision
     uint256 constant THOUSAND = 10 ** 3;
@@ -116,61 +116,63 @@ contract SpellAction {
             address MCD_GOV         = CHANGELOG.getAddress("MCD_GOV");
 
 
-            address MCD_JOIN_LENDER_BURN_DELEGATOR = address(new BurnDelegator(address(MCD_GOV), address(MCD_DAI), address(USDC), address(COMP)));
-            address MCD_JOIN_LENDER_USDC_A = address(new LendingAuthGemJoin(address(MCD_VAT), ILK_PSM_LENDER_USDC_A, address(USDC), address(CUSDC), address(COMP)));
-            address MCD_JOIN_LENDER_DAI_A = address(new LendingAuthGemJoin(address(MCD_VAT), ILK_PSM_LENDER_DAI_A, address(MCD_DAI), address(CDAI), address(COMP)));
-            address MCD_PSM_CME_COMP = address(new DssPsmCme(address(MCD_JOIN_LENDER_USDC_A), address(MCD_JOIN_LENDER_DAI_A), address(MCD_JOIN_DAI), address(MCD_VOW)));
+            address ASSERT_BURN_DELEGATOR = address(new BurnDelegator(address(MCD_GOV), address(MCD_DAI), address(USDC), address(COMP)));
+            address MCD_JOIN_COMP_USDC_A = address(new LendingAuthGemJoin(address(MCD_VAT), ILK_PSM_COMP_USDC_A, address(USDC), address(CUSDC), address(COMP)));
+            address MCD_JOIN_COMP_DAI_A = address(new LendingAuthGemJoin(address(MCD_VAT), ILK_PSM_COMP_DAI_A, address(MCD_DAI), address(CDAI), address(COMP)));
+            address MCD_PSM_COMP_USDC_A = address(new DssPsmCme(address(MCD_JOIN_COMP_USDC_A), address(MCD_JOIN_COMP_DAI_A), address(MCD_JOIN_DAI), address(MCD_VOW)));
 
-            require(GemJoinAbstract(MCD_JOIN_LENDER_USDC_A).vat() == MCD_VAT, "join-vat-not-match");
-            require(GemJoinAbstract(MCD_JOIN_LENDER_USDC_A).ilk() == ILK_PSM_LENDER_USDC_A, "join-ilk-not-match");
-            require(GemJoinAbstract(MCD_JOIN_LENDER_USDC_A).gem() == USDC, "join-gem-not-match");
-            require(GemJoinAbstract(MCD_JOIN_LENDER_USDC_A).dec() == DSTokenAbstract(USDC).decimals(), "join-dec-not-match");
+            require(GemJoinAbstract(MCD_JOIN_COMP_USDC_A).vat() == MCD_VAT, "join-vat-not-match");
+            require(GemJoinAbstract(MCD_JOIN_COMP_USDC_A).ilk() == ILK_PSM_COMP_USDC_A, "join-ilk-not-match");
+            require(GemJoinAbstract(MCD_JOIN_COMP_USDC_A).gem() == USDC, "join-gem-not-match");
+            require(GemJoinAbstract(MCD_JOIN_COMP_USDC_A).dec() == DSTokenAbstract(USDC).decimals(), "join-dec-not-match");
 
-            require(GemJoinAbstract(MCD_JOIN_LENDER_DAI_A).vat() == MCD_VAT, "join-vat-not-match");
-            require(GemJoinAbstract(MCD_JOIN_LENDER_DAI_A).ilk() == ILK_PSM_LENDER_DAI_A, "join-ilk-not-match");
-            require(GemJoinAbstract(MCD_JOIN_LENDER_DAI_A).gem() == MCD_DAI, "join-gem-not-match");
-            require(GemJoinAbstract(MCD_JOIN_LENDER_DAI_A).dec() == DSTokenAbstract(MCD_DAI).decimals(), "join-dec-not-match");
-            require(PsmCmeAbstract(MCD_PSM_CME_COMP).vat() == MCD_VAT, "psm-vat-not-match");
-            require(PsmCmeAbstract(MCD_PSM_CME_COMP).dai() == MCD_DAI, "psm-dai-not-match");
-            require(PsmCmeAbstract(MCD_PSM_CME_COMP).daiJoin() == MCD_JOIN_DAI, "psm-dai-join-not-match");
-            require(PsmCmeAbstract(MCD_PSM_CME_COMP).ilk() == ILK_PSM_LENDER_USDC_A, "psm-ilk-not-match");
-            require(PsmCmeAbstract(MCD_PSM_CME_COMP).leverageIlk() == ILK_PSM_LENDER_DAI_A, "psm-ilk-not-match");
-            require(PsmCmeAbstract(MCD_PSM_CME_COMP).vow() == MCD_VOW, "psm-vow-not-match");
-            require(PsmCmeAbstract(MCD_PSM_CME_COMP).gemJoin() == MCD_JOIN_LENDER_USDC_A, "psm-gem-join-not-match");
-            require(PsmCmeAbstract(MCD_PSM_CME_COMP).leverageGemJoin() == MCD_JOIN_LENDER_DAI_A, "psm-leverage-gem-join-not-match");
+            require(GemJoinAbstract(MCD_JOIN_COMP_DAI_A).vat() == MCD_VAT, "join-vat-not-match");
+            require(GemJoinAbstract(MCD_JOIN_COMP_DAI_A).ilk() == ILK_PSM_COMP_DAI_A, "join-ilk-not-match");
+            require(GemJoinAbstract(MCD_JOIN_COMP_DAI_A).gem() == MCD_DAI, "join-gem-not-match");
+            require(GemJoinAbstract(MCD_JOIN_COMP_DAI_A).dec() == DSTokenAbstract(MCD_DAI).decimals(), "join-dec-not-match");
+            require(PsmCmeAbstract(MCD_PSM_COMP_USDC_A).vat() == MCD_VAT, "psm-vat-not-match");
+            require(PsmCmeAbstract(MCD_PSM_COMP_USDC_A).dai() == MCD_DAI, "psm-dai-not-match");
+            require(PsmCmeAbstract(MCD_PSM_COMP_USDC_A).daiJoin() == MCD_JOIN_DAI, "psm-dai-join-not-match");
+            require(PsmCmeAbstract(MCD_PSM_COMP_USDC_A).ilk() == ILK_PSM_COMP_USDC_A, "psm-ilk-not-match");
+            require(PsmCmeAbstract(MCD_PSM_COMP_USDC_A).leverageIlk() == ILK_PSM_COMP_DAI_A, "psm-ilk-not-match");
+            require(PsmCmeAbstract(MCD_PSM_COMP_USDC_A).vow() == MCD_VOW, "psm-vow-not-match");
+            require(PsmCmeAbstract(MCD_PSM_COMP_USDC_A).gemJoin() == MCD_JOIN_COMP_USDC_A, "psm-gem-join-not-match");
+            require(PsmCmeAbstract(MCD_PSM_COMP_USDC_A).leverageGemJoin() == MCD_JOIN_COMP_DAI_A, "psm-leverage-gem-join-not-match");
 
             // Allow new Join to modify Vat registry
-            VatAbstract(MCD_VAT).rely(address(MCD_JOIN_LENDER_USDC_A));
-            VatAbstract(MCD_VAT).rely(address(MCD_JOIN_LENDER_DAI_A));
+            VatAbstract(MCD_VAT).rely(address(MCD_JOIN_COMP_USDC_A));
+            VatAbstract(MCD_VAT).rely(address(MCD_JOIN_COMP_DAI_A));
 
             // link and authorized Join lender to excessDelegator
-            LendingAuthGemJoin(MCD_JOIN_LENDER_BURN_DELEGATOR).rely(address(MCD_JOIN_LENDER_USDC_A));
-            LendingAuthGemJoin(MCD_JOIN_LENDER_BURN_DELEGATOR).rely(address(MCD_JOIN_LENDER_DAI_A));
-            LendingAuthGemJoin(MCD_JOIN_LENDER_USDC_A).file("excess_delegator", address(MCD_JOIN_LENDER_BURN_DELEGATOR));
-            LendingAuthGemJoin(MCD_JOIN_LENDER_DAI_A).file("excess_delegator", address(MCD_JOIN_LENDER_BURN_DELEGATOR));
+            LendingAuthGemJoin(ASSERT_BURN_DELEGATOR).rely(address(MCD_JOIN_COMP_USDC_A));
+            LendingAuthGemJoin(ASSERT_BURN_DELEGATOR).rely(address(MCD_JOIN_COMP_DAI_A));
+            LendingAuthGemJoin(MCD_JOIN_COMP_USDC_A).file("excess_delegator", address(ASSERT_BURN_DELEGATOR));
+            LendingAuthGemJoin(MCD_JOIN_COMP_DAI_A).file("excess_delegator", address(ASSERT_BURN_DELEGATOR));
 
             // Allow PSM-CME to join
-            LendingAuthGemJoin(MCD_JOIN_LENDER_USDC_A).rely(address(MCD_PSM_CME_COMP));
-            LendingAuthGemJoin(MCD_JOIN_LENDER_DAI_A).rely(address(MCD_PSM_CME_COMP));
+            LendingAuthGemJoin(MCD_JOIN_COMP_USDC_A).rely(address(MCD_PSM_COMP_USDC_A));
+            LendingAuthGemJoin(MCD_JOIN_COMP_DAI_A).rely(address(MCD_PSM_COMP_USDC_A));
             // Set PSM-CME param
-            DssPsmCme(MCD_PSM_CME_COMP).file("tin", 1 * WAD / 1000);
-            DssPsmCme(MCD_PSM_CME_COMP).file("tout", 1 * WAD / 1000);
+            DssPsmCme(MCD_PSM_COMP_USDC_A).file("tin", 1 * WAD / 1000);
+            DssPsmCme(MCD_PSM_COMP_USDC_A).file("tout", 1 * WAD / 1000);
 
             // set Delegator param
-            DelegatorAbstract(MCD_JOIN_LENDER_BURN_DELEGATOR).file("psm", address(MCD_PSM_USDC_A));
-            DelegatorAbstract(MCD_JOIN_LENDER_BURN_DELEGATOR).file("route", address(UNISWAP_ROUTER_V2));
+            DelegatorAbstract(ASSERT_BURN_DELEGATOR).file("psm", address(MCD_PSM_USDC_A));
+            DelegatorAbstract(ASSERT_BURN_DELEGATOR).file("route", address(UNISWAP_ROUTER_V2));
 
-            VatAbstract(MCD_VAT).init(ILK_PSM_LENDER_USDC_A);
-            VatAbstract(MCD_VAT).init(ILK_PSM_LENDER_DAI_A);
-            JugAbstract(MCD_JUG).init(ILK_PSM_LENDER_USDC_A);
-            JugAbstract(MCD_JUG).init(ILK_PSM_LENDER_DAI_A);
+            VatAbstract(MCD_VAT).init(ILK_PSM_COMP_USDC_A);
+            VatAbstract(MCD_VAT).init(ILK_PSM_COMP_DAI_A);
+            JugAbstract(MCD_JUG).init(ILK_PSM_COMP_USDC_A);
+            JugAbstract(MCD_JUG).init(ILK_PSM_COMP_DAI_A);
 
 
-            CHANGELOG.setAddress("MCD_JOIN_LENDER_BURN_DELEGATOR", MCD_JOIN_LENDER_BURN_DELEGATOR);
-            CHANGELOG.setAddress("MCD_JOIN_LENDER_USDC_A", MCD_JOIN_LENDER_USDC_A);
-            CHANGELOG.setAddress("MCD_JOIN_LENDER_DAI_A", MCD_JOIN_LENDER_DAI_A);
-            CHANGELOG.setAddress("MCD_PSM_CME_COMP", MCD_PSM_CME_COMP);
+            CHANGELOG.setAddress("ASSERT_BURN_DELEGATOR", ASSERT_BURN_DELEGATOR);
+            CHANGELOG.setAddress("MCD_JOIN_COMP_USDC_A", MCD_JOIN_COMP_USDC_A);
+            CHANGELOG.setAddress("MCD_JOIN_COMP_DAI_A", MCD_JOIN_COMP_DAI_A);
+            CHANGELOG.setAddress("MCD_PSM_COMP_USDC_A", MCD_PSM_COMP_USDC_A);
             CHANGELOG.setAddress("UNISWAP_ROUTER_V2", UNISWAP_ROUTER_V2);
+            CHANGELOG.setAddress("CDAI", CDAI);
+            CHANGELOG.setAddress("CUSDC", CUSDC);
 
         }
 
@@ -184,57 +186,57 @@ contract SpellAction {
             address FLIPPER_MOM     = CHANGELOG.getAddress("FLIPPER_MOM");
             address ILK_REGISTRY    = CHANGELOG.getAddress("ILK_REGISTRY");
 
-            address MCD_JOIN_LENDER_USDC_A       = CHANGELOG.getAddress("MCD_JOIN_LENDER_USDC_A");
-            address MCD_JOIN_LENDER_DAI_A        = CHANGELOG.getAddress("MCD_JOIN_LENDER_DAI_A");
+            address MCD_JOIN_COMP_USDC_A       = CHANGELOG.getAddress("MCD_JOIN_COMP_USDC_A");
+            address MCD_JOIN_COMP_DAI_A        = CHANGELOG.getAddress("MCD_JOIN_COMP_DAI_A");
 
-            address MCD_FLIP_PSM_CME_USDC_A = address(new Flipper(MCD_VAT, MCD_CAT, ILK_PSM_LENDER_USDC_A));
-            address MCD_FLIP_PSM_CME_DAI_A = address(new Flipper(MCD_VAT, MCD_CAT, ILK_PSM_LENDER_DAI_A));
+            address MCD_FLIP_PSM_COMP_USDC_A = address(new Flipper(MCD_VAT, MCD_CAT, ILK_PSM_COMP_USDC_A));
+            address MCD_FLIP_PSM_COMP_DAI_A = address(new Flipper(MCD_VAT, MCD_CAT, ILK_PSM_COMP_DAI_A));
             address PIP_DAI = address(new DSValue());
 
 
-            require(FlipAbstract(MCD_FLIP_PSM_CME_USDC_A).vat() == MCD_VAT, "flip-vat-not-match");
-            require(FlipAbstract(MCD_FLIP_PSM_CME_USDC_A).cat() == MCD_CAT, "flip-cat-not-match");
-            require(FlipAbstract(MCD_FLIP_PSM_CME_USDC_A).ilk() == ILK_PSM_LENDER_USDC_A, "flip-ilk-not-match");
-            require(FlipAbstract(MCD_FLIP_PSM_CME_DAI_A).vat() == MCD_VAT, "flip-vat-not-match");
-            require(FlipAbstract(MCD_FLIP_PSM_CME_DAI_A).cat() == MCD_CAT, "flip-cat-not-match");
-            require(FlipAbstract(MCD_FLIP_PSM_CME_DAI_A).ilk() == ILK_PSM_LENDER_DAI_A, "flip-ilk-not-match");
+            require(FlipAbstract(MCD_FLIP_PSM_COMP_USDC_A).vat() == MCD_VAT, "flip-vat-not-match");
+            require(FlipAbstract(MCD_FLIP_PSM_COMP_USDC_A).cat() == MCD_CAT, "flip-cat-not-match");
+            require(FlipAbstract(MCD_FLIP_PSM_COMP_USDC_A).ilk() == ILK_PSM_COMP_USDC_A, "flip-ilk-not-match");
+            require(FlipAbstract(MCD_FLIP_PSM_COMP_DAI_A).vat() == MCD_VAT, "flip-vat-not-match");
+            require(FlipAbstract(MCD_FLIP_PSM_COMP_DAI_A).cat() == MCD_CAT, "flip-cat-not-match");
+            require(FlipAbstract(MCD_FLIP_PSM_COMP_DAI_A).ilk() == ILK_PSM_COMP_DAI_A, "flip-ilk-not-match");
 
 
             // Set the USDC/DAI PIP in the Spotter
-            SpotAbstract(MCD_SPOT).file(ILK_PSM_LENDER_USDC_A, "pip", PIP_USDC);
-            SpotAbstract(MCD_SPOT).file(ILK_PSM_LENDER_DAI_A, "pip", PIP_DAI);
+            SpotAbstract(MCD_SPOT).file(ILK_PSM_COMP_USDC_A, "pip", PIP_USDC);
+            SpotAbstract(MCD_SPOT).file(ILK_PSM_COMP_DAI_A, "pip", PIP_DAI);
 
             // Set the PSM-USDC-A Flipper in the Cat
-            CatAbstract(MCD_CAT).file(ILK_PSM_LENDER_USDC_A, "flip", MCD_FLIP_PSM_CME_USDC_A);
-            CatAbstract(MCD_CAT).file(ILK_PSM_LENDER_DAI_A, "flip", MCD_FLIP_PSM_CME_DAI_A);
+            CatAbstract(MCD_CAT).file(ILK_PSM_COMP_USDC_A, "flip", MCD_FLIP_PSM_COMP_USDC_A);
+            CatAbstract(MCD_CAT).file(ILK_PSM_COMP_DAI_A, "flip", MCD_FLIP_PSM_COMP_DAI_A);
 
 
             // Update PSM-USDC-A spot value in Vat
-            SpotAbstract(MCD_SPOT).poke(ILK_PSM_LENDER_USDC_A);
-            SpotAbstract(MCD_SPOT).poke(ILK_PSM_LENDER_DAI_A);
+            SpotAbstract(MCD_SPOT).poke(ILK_PSM_COMP_USDC_A);
+            SpotAbstract(MCD_SPOT).poke(ILK_PSM_COMP_DAI_A);
 
             // Allow list PSM - USDC
-            CatAbstract(MCD_CAT).rely(MCD_FLIP_PSM_CME_USDC_A);
-            FlipAbstract(MCD_FLIP_PSM_CME_USDC_A).rely(MCD_CAT);
-            FlipAbstract(MCD_FLIP_PSM_CME_USDC_A).rely(MCD_END);
-            FlipAbstract(MCD_FLIP_PSM_CME_USDC_A).rely(FLIPPER_MOM);
+            CatAbstract(MCD_CAT).rely(MCD_FLIP_PSM_COMP_USDC_A);
+            FlipAbstract(MCD_FLIP_PSM_COMP_USDC_A).rely(MCD_CAT);
+            FlipAbstract(MCD_FLIP_PSM_COMP_USDC_A).rely(MCD_END);
+            FlipAbstract(MCD_FLIP_PSM_COMP_USDC_A).rely(FLIPPER_MOM);
             // Disallow Cat to kick auctions in PSM-USDC-A Flipper
             // !!!!!!!! Only for certain collaterals that do not trigger liquidations like USDC-A)
-            FlipperMomAbstract(FLIPPER_MOM).deny(MCD_FLIP_PSM_CME_USDC_A);
+            FlipperMomAbstract(FLIPPER_MOM).deny(MCD_FLIP_PSM_COMP_USDC_A);
 
             // Allow list PSM - DAI
-            CatAbstract(MCD_CAT).rely(MCD_FLIP_PSM_CME_DAI_A);
-            FlipAbstract(MCD_FLIP_PSM_CME_DAI_A).rely(MCD_CAT);
-            FlipAbstract(MCD_FLIP_PSM_CME_DAI_A).rely(MCD_END);
-            FlipAbstract(MCD_FLIP_PSM_CME_DAI_A).rely(FLIPPER_MOM);
+            CatAbstract(MCD_CAT).rely(MCD_FLIP_PSM_COMP_DAI_A);
+            FlipAbstract(MCD_FLIP_PSM_COMP_DAI_A).rely(MCD_CAT);
+            FlipAbstract(MCD_FLIP_PSM_COMP_DAI_A).rely(MCD_END);
+            FlipAbstract(MCD_FLIP_PSM_COMP_DAI_A).rely(FLIPPER_MOM);
             // Disallow Cat to kick auctions in PSM-USDC-A Flipper
-            FlipperMomAbstract(FLIPPER_MOM).deny(MCD_FLIP_PSM_CME_DAI_A);
+            FlipperMomAbstract(FLIPPER_MOM).deny(MCD_FLIP_PSM_COMP_DAI_A);
 
-            IlkRegistryAbstract(ILK_REGISTRY).add(address(MCD_JOIN_LENDER_USDC_A));
-            IlkRegistryAbstract(ILK_REGISTRY).add(address(MCD_JOIN_LENDER_DAI_A));
+            IlkRegistryAbstract(ILK_REGISTRY).add(address(MCD_JOIN_COMP_USDC_A));
+            IlkRegistryAbstract(ILK_REGISTRY).add(address(MCD_JOIN_COMP_DAI_A));
 
-            CHANGELOG.setAddress("MCD_FLIP_PSM_CME_DAI_A", MCD_FLIP_PSM_CME_DAI_A);
-            CHANGELOG.setAddress("MCD_FLIP_PSM_CME_USDC_A", MCD_FLIP_PSM_CME_USDC_A);
+            CHANGELOG.setAddress("MCD_FLIP_PSM_COMP_DAI_A", MCD_FLIP_PSM_COMP_DAI_A);
+            CHANGELOG.setAddress("MCD_FLIP_PSM_COMP_USDC_A", MCD_FLIP_PSM_COMP_USDC_A);
             CHANGELOG.setAddress("PIP_DAI", PIP_DAI);
 
         }
@@ -243,29 +245,29 @@ contract SpellAction {
             address MCD_VAT                   = CHANGELOG.getAddress("MCD_VAT");
             address MCD_CAT                   = CHANGELOG.getAddress("MCD_CAT");
             address MCD_JUG                   = CHANGELOG.getAddress("MCD_JUG");
-            address MCD_FLIP_PSM_CME_USDC_A   = CHANGELOG.getAddress("MCD_FLIP_PSM_CME_USDC_A");
-            address MCD_FLIP_PSM_CME_DAI_A    = CHANGELOG.getAddress("MCD_FLIP_PSM_CME_DAI_A");
+            address MCD_FLIP_PSM_COMP_USDC_A  = CHANGELOG.getAddress("MCD_FLIP_PSM_COMP_USDC_A");
+            address MCD_FLIP_PSM_COMP_DAI_A   = CHANGELOG.getAddress("MCD_FLIP_PSM_COMP_DAI_A");
             address MCD_SPOT                  = CHANGELOG.getAddress("MCD_SPOT");
 
-            // Set PSM-LENDER-USDC-A generic param
-            VatAbstract(MCD_VAT).file(ILK_PSM_LENDER_USDC_A, "line", 500 * THOUSAND * RAD);
-            CatAbstract(MCD_CAT).file(ILK_PSM_LENDER_USDC_A, "dunk", 50 * THOUSAND * RAD);
-            CatAbstract(MCD_CAT).file(ILK_PSM_LENDER_USDC_A, "chop", 113 * WAD / 100);
-            JugAbstract(MCD_JUG).file(ILK_PSM_LENDER_USDC_A, "duty", ZERO_PERCENT_RATE);
-            FlipAbstract(MCD_FLIP_PSM_CME_USDC_A).file("beg", 103 * WAD / 100);
-            FlipAbstract(MCD_FLIP_PSM_CME_USDC_A).file("ttl", 6 hours);
-            FlipAbstract(MCD_FLIP_PSM_CME_USDC_A).file("tau", 6 hours);
-            SpotAbstract(MCD_SPOT).file(ILK_PSM_LENDER_USDC_A, "mat", 100 * RAY / 100);
+            // Set PSM-COMP-USDC-A generic param
+            VatAbstract(MCD_VAT).file(ILK_PSM_COMP_USDC_A, "line", 500 * THOUSAND * RAD);
+            CatAbstract(MCD_CAT).file(ILK_PSM_COMP_USDC_A, "dunk", 50 * THOUSAND * RAD);
+            CatAbstract(MCD_CAT).file(ILK_PSM_COMP_USDC_A, "chop", 113 * WAD / 100);
+            JugAbstract(MCD_JUG).file(ILK_PSM_COMP_USDC_A, "duty", ZERO_PERCENT_RATE);
+            FlipAbstract(MCD_FLIP_PSM_COMP_USDC_A).file("beg", 103 * WAD / 100);
+            FlipAbstract(MCD_FLIP_PSM_COMP_USDC_A).file("ttl", 6 hours);
+            FlipAbstract(MCD_FLIP_PSM_COMP_USDC_A).file("tau", 6 hours);
+            SpotAbstract(MCD_SPOT).file(ILK_PSM_COMP_USDC_A, "mat", 100 * RAY / 100);
 
             // Set the PSM-LENDER-DAI-A generic param
-            VatAbstract(MCD_VAT).file(ILK_PSM_LENDER_DAI_A, "line", 500 * THOUSAND * RAD);
-            CatAbstract(MCD_CAT).file(ILK_PSM_LENDER_DAI_A, "dunk", 50 * THOUSAND * RAD);
-            CatAbstract(MCD_CAT).file(ILK_PSM_LENDER_DAI_A, "chop", 113 * WAD / 100);
-            JugAbstract(MCD_JUG).file(ILK_PSM_LENDER_DAI_A, "duty", ZERO_PERCENT_RATE);
-            FlipAbstract(MCD_FLIP_PSM_CME_DAI_A).file("beg", 103 * WAD / 100);
-            FlipAbstract(MCD_FLIP_PSM_CME_DAI_A).file("ttl", 6 hours);
-            FlipAbstract(MCD_FLIP_PSM_CME_DAI_A).file("tau", 6 hours);
-            SpotAbstract(MCD_SPOT).file(ILK_PSM_LENDER_DAI_A, "mat", 100 * RAY / 100);
+            VatAbstract(MCD_VAT).file(ILK_PSM_COMP_DAI_A, "line", 500 * THOUSAND * RAD);
+            CatAbstract(MCD_CAT).file(ILK_PSM_COMP_DAI_A, "dunk", 50 * THOUSAND * RAD);
+            CatAbstract(MCD_CAT).file(ILK_PSM_COMP_DAI_A, "chop", 113 * WAD / 100);
+            JugAbstract(MCD_JUG).file(ILK_PSM_COMP_DAI_A, "duty", ZERO_PERCENT_RATE);
+            FlipAbstract(MCD_FLIP_PSM_COMP_DAI_A).file("beg", 103 * WAD / 100);
+            FlipAbstract(MCD_FLIP_PSM_COMP_DAI_A).file("ttl", 6 hours);
+            FlipAbstract(MCD_FLIP_PSM_COMP_DAI_A).file("tau", 6 hours);
+            SpotAbstract(MCD_SPOT).file(ILK_PSM_COMP_DAI_A, "mat", 100 * RAY / 100);
 
 
             // Set the global debt ceiling
@@ -290,9 +292,9 @@ contract DssPsmCompMixExposureLenderJoinSpell {
     address          public action;
     bytes32          public tag;
     uint256          public expiration;
-    uint256         public eta;
-    bytes           public sig;
-    bool            public done;
+    uint256          public eta;
+    bytes            public sig;
+    bool             public done;
 
     // Provides a descriptive tag for bot consumption
     // This should be modified weekly to provide a summary of the actions

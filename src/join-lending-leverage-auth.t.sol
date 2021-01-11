@@ -5,7 +5,6 @@ import "ds-token/token.sol";
 import "ds-value/value.sol";
 import {Vat}              from "dss/vat.sol";
 import {Spotter}          from "dss/spot.sol";
-import {Dai}              from "dss/dai.sol";
 
 import "./stub/TestComptroller.stub.sol";
 import "./stub/TestCToken.stub.sol";
@@ -44,7 +43,6 @@ contract DssPsmCmeTest is DSTest , DSMath {
     Spotter spotGemA;
     DSValue pipGemA;
     TestToken usdx;
-    Dai dai;
 
     TestCToken ctoken;
     DSToken bonusToken;
@@ -93,7 +91,6 @@ contract DssPsmCmeTest is DSTest , DSMath {
         usdx.mint(10000 * USDX_DEC);
         vat.init(ilkA);
 
-        dai = new Dai(0);
         bonusToken = new TestToken("XOMP", 8);
         TokenAuthority bonusAuthority = new TokenAuthority();
         bonusToken.setAuthority(DSAuthority(address(bonusAuthority)));
@@ -112,7 +109,7 @@ contract DssPsmCmeTest is DSTest , DSMath {
         comptroller = new TestComptroller(ctoken , bonusToken);
         bonusAuthority.rely(address(comptroller));
 
-        gemA = new LendingLeverageAuthGemJoin(address(vat), ilkA, address(usdx), address(ctoken), address(bonusToken), address(comptroller), address(dai));
+        gemA = new LendingLeverageAuthGemJoin(address(vat), ilkA, address(usdx), address(ctoken), address(bonusToken), address(comptroller));
         gemA.rely(me);
         vat.rely(address(gemA));
         gemA.file("cf_target", 70 * WAD / 100);
@@ -294,7 +291,7 @@ contract DssPsmCmeTest is DSTest , DSMath {
 
         assertTrue(excessDelegator.hasBeenCalled());
         assertEq(bonusToken.balanceOf(address(excessDelegator)) , 115); // more then 100 and 1 each mint
-        assertEq(usdx.balanceOf(address(excessDelegator)) , 1 * USDX_DEC);
+        assertEq(usdx.balanceOf(address(excessDelegator)) , 1 * USDX_DEC - 500); // 500 Margin
     }
 
     function test_harvest_over_collateralized_with_no_monies_no_reward() public {
@@ -323,7 +320,7 @@ contract DssPsmCmeTest is DSTest , DSMath {
         vat.frob(ilkA, me, me, me, 10000, 10000);
         gemA.harvest();
         assertTrue(excessDelegator.hasBeenCalled());
-        assertEq(usdx.balanceOf(address(excessDelegator)) , 4 * USDX_DEC);
+        assertEq(usdx.balanceOf(address(excessDelegator)) , 4 * USDX_DEC - 500); // 500 Margin
     }
 
     function test_harvest_over_collateralized_with_fees_and_bonus() public {
@@ -336,7 +333,7 @@ contract DssPsmCmeTest is DSTest , DSMath {
         vat.frob(ilkA, me, me, me, 10000, 10000);
         gemA.harvest();
         assertTrue(excessDelegator.hasBeenCalled());
-        assertEq(usdx.balanceOf(address(excessDelegator)) , 4 * USDX_DEC);
+        assertEq(usdx.balanceOf(address(excessDelegator)) , 4 * USDX_DEC - 500); // 500 Margin
         assertEq(bonusToken.balanceOf(address(excessDelegator)) , 7);
     }
 
@@ -354,7 +351,7 @@ contract DssPsmCmeTest is DSTest , DSMath {
 
         gemA.harvest();
         assertTrue(excessDelegator.hasBeenCalled());
-        assertEq(usdx.balanceOf(address(excessDelegator)) , 4 * USDX_DEC);
+        assertEq(usdx.balanceOf(address(excessDelegator)) , 4 * USDX_DEC - 500); // 500 Margin
     }
 
     // test harvest under collateralized
