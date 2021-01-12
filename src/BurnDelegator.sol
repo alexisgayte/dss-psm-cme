@@ -39,9 +39,9 @@ contract BurnDelegator {
     }
 
     function file(bytes32 what, uint256 data) external auth {
-        if (what == "max_bonus_auction_amount") maxBonusAuctionAmount = data;
-        else if (what == "max_dai_auction_amount") maxDaiAuctionAmount = data;
+        if (what == "bonus_auction_max_amount") bonusAuctionMaxAmount = data;
         else if (what == "bonus_auction_duration") bonusAuctionDuration = data;
+        else if (what == "dai_auction_max_amount") daiAuctionMaxAmount = data;
         else if (what == "dai_auction_duration") daiAuctionDuration = data;
         else revert("BurnDelegator/file-unrecognized-param");
 
@@ -75,9 +75,9 @@ contract BurnDelegator {
     RouteLike public route;
     PsmLike public psm;
 
-    uint256 public maxBonusAuctionAmount;
-    uint256 public maxDaiAuctionAmount;
+    uint256 public bonusAuctionMaxAmount;
     uint256 public bonusAuctionDuration;
+    uint256 public daiAuctionMaxAmount;
     uint256 public daiAuctionDuration;
     uint256 public lastDaiAuctionTimestamp;
     uint256 public lastBonusAuctionTimestamp;
@@ -93,9 +93,9 @@ contract BurnDelegator {
         bonusToken = GemLike(bonusToken_);
 
         bonusAuctionDuration = 3600;
-        maxBonusAuctionAmount = 500;
+        bonusAuctionMaxAmount = 500;
         daiAuctionDuration = 3600;
-        maxDaiAuctionAmount = 500;
+        daiAuctionMaxAmount = 500;
     }
 
 
@@ -116,7 +116,7 @@ contract BurnDelegator {
             path[1] = address(mkr);
 
             uint256[] memory _amountOut =  route.getAmountsOut(_amountDai, path);
-            uint256 _buyMrkAmount = min(maxDaiAuctionAmount, _amountOut[_amountOut.length - 1]);
+            uint256 _buyMrkAmount = min(daiAuctionMaxAmount, _amountOut[_amountOut.length - 1]);
             route.swapTokensForExactTokens(_buyMrkAmount, uint(0), path, address(this), block.timestamp + 3600);
             mkr.burn(address(this), mkr.balanceOf(address(this)));
         }
@@ -135,7 +135,7 @@ contract BurnDelegator {
             path[1] = address(dai);
 
             uint256[] memory _amountOut =  route.getAmountsOut(_amountBonus, path);
-            uint256 _buyDaiAmount = min(maxBonusAuctionAmount, _amountOut[_amountOut.length - 1]);
+            uint256 _buyDaiAmount = min(bonusAuctionMaxAmount, _amountOut[_amountOut.length - 1]);
             route.swapTokensForExactTokens(_buyDaiAmount, uint(0), path, address(this), block.timestamp + 3600);
         }
 

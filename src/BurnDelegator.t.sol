@@ -154,7 +154,7 @@ contract SellDelegotorTest is DSTest {
         mkr.transfer(address(burnDelegator), 200);
         assertEq(dai.balanceOf(address(burnDelegator)), 100);
         hevm.warp(4 hours);
-        burnDelegator.file("max_dai_auction_amount", 200);
+        burnDelegator.file("dai_auction_max_amount", 200);
         burnDelegator.processDai();
 
         assertTrue(testRoute.hasBeenCalled());
@@ -166,7 +166,7 @@ contract SellDelegotorTest is DSTest {
         mkr.transfer(address(burnDelegator), 200);
         assertEq(dai.balanceOf(address(burnDelegator)), 100);
         hevm.warp(4 hours);
-        burnDelegator.file("max_dai_auction_amount", 50);
+        burnDelegator.file("dai_auction_max_amount", 50);
         burnDelegator.processDai();
 
         assertTrue(testRoute.hasBeenCalled());
@@ -179,7 +179,7 @@ contract SellDelegotorTest is DSTest {
         mkr.transfer(address(burnDelegator), 200);
         assertEq(dai.balanceOf(address(burnDelegator)), 100);
 
-        burnDelegator.file("max_dai_auction_amount", 200);
+        burnDelegator.file("dai_auction_max_amount", 200);
         burnDelegator.file("dai_auction_duration", 30*60);
         hevm.warp(45 minutes);
         burnDelegator.processDai();
@@ -219,7 +219,7 @@ contract SellDelegotorTest is DSTest {
         bonusToken.transfer(address(burnDelegator), 100);
         assertEq(bonusToken.balanceOf(address(burnDelegator)), 100);
         hevm.warp(4 hours);
-        burnDelegator.file("max_bonus_auction_amount", 200);
+        burnDelegator.file("bonus_auction_max_amount", 200);
         burnDelegator.processComp();
 
         assertTrue(testRoute.hasBeenCalled());
@@ -230,7 +230,7 @@ contract SellDelegotorTest is DSTest {
         bonusToken.transfer(address(burnDelegator), 100);
         assertEq(bonusToken.balanceOf(address(burnDelegator)), 100);
         hevm.warp(4 hours);
-        burnDelegator.file("max_bonus_auction_amount", 50);
+        burnDelegator.file("bonus_auction_max_amount", 50);
         burnDelegator.processComp();
 
         assertTrue(testRoute.hasBeenCalled());
@@ -242,7 +242,7 @@ contract SellDelegotorTest is DSTest {
         bonusToken.transfer(address(burnDelegator), 100);
         assertEq(bonusToken.balanceOf(address(burnDelegator)), 100);
 
-        burnDelegator.file("max_bonus_auction_amount", 200);
+        burnDelegator.file("bonus_auction_max_amount", 200);
         burnDelegator.file("bonus_auction_duration", 30*60);
         hevm.warp(45 minutes);
         burnDelegator.processComp();

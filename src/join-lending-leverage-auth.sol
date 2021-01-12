@@ -67,7 +67,7 @@ contract LendingLeverageAuthGemJoin is LibNote, DSMath {
     GemLike public bonusToken;
     uint256 public gemTo18ConversionFactor;
     RouteLike public route;
-    uint256 public maxBonusAuctionAmount;
+    uint256 public bonusAuctionMaxAmount;
     uint256 public bonusAuctionDuration;
     uint256 public lastBonusAuctionTimestamp;
     uint256 public excessMargin;
@@ -97,7 +97,7 @@ contract LendingLeverageAuthGemJoin is LibNote, DSMath {
 
         total = 0;
         bonusAuctionDuration = 3600;
-        maxBonusAuctionAmount = 500;
+        bonusAuctionMaxAmount = 500;
         excessMargin = 500;
 
         address[] memory ctokens = new address[](1);
@@ -125,7 +125,7 @@ contract LendingLeverageAuthGemJoin is LibNote, DSMath {
             require(data < WAD , "DssPsmCme/more-100-percent");
             cfMax = data;
         }
-        else if (what == "max_bonus_auction_amount") maxBonusAuctionAmount = data;
+        else if (what == "bonus_auction_max_amount") bonusAuctionMaxAmount = data;
         else if (what == "bonus_auction_duration") bonusAuctionDuration = data;
         else if (what == "excess_margin") excessMargin = data;
         else revert("LendingLeverageAuthGemJoin/file-unrecognized-param");
@@ -182,7 +182,7 @@ contract LendingLeverageAuthGemJoin is LibNote, DSMath {
 
             uint256[] memory _amountOut =  route.getAmountsOut(_balance, path);
             uint256 _buyGemAmount = min(_missingUnderlying, _amountOut[_amountOut.length - 1]);
-            _buyGemAmount = min(maxBonusAuctionAmount, _buyGemAmount);
+            _buyGemAmount = min(bonusAuctionMaxAmount, _buyGemAmount);
             require(bonusToken.approve(address(route), _buyGemAmount), "LendingLeverageAuthGemJoin/failed-approve-bonus-token");
             route.swapTokensForExactTokens(_buyGemAmount, uint(0), path, address(this), block.timestamp + 3600);
             require(ltk.mint(_buyGemAmount) == 0, "LendingLeverageAuthGemJoin/failed-mint");

@@ -165,8 +165,8 @@ contract DssPsmCmeTest is DSTest , DSMath {
     }
 
     function test_maxBonusAuctionAmount() public {
-        gemA.file("max_bonus_auction_amount", 80 * WAD);
-        assertEq(gemA.maxBonusAuctionAmount(), 80 * WAD);
+        gemA.file("bonus_auction_max_amount", 80 * WAD);
+        assertEq(gemA.bonusAuctionMaxAmount(), 80 * WAD);
     }
 
     function test_bonusAuctionDuration() public {
@@ -405,13 +405,13 @@ contract DssPsmCmeTest is DSTest , DSMath {
 
     }
 
-    function test_harvest_under_collateralized_with_bonus_under_max_bonus_auction_amount() public {
+    function test_harvest_under_collateralized_with_bonus_under_bonus_auction_max_amount() public {
         usdx.approve(address(gemA));//token
         gemA.file("excess_delegator", address(excessDelegator));
         ctoken.setReward(10);
 
         hevm.warp(4 hours);
-        gemA.file("max_bonus_auction_amount", 200);
+        gemA.file("bonus_auction_max_amount", 200);
         gemA.join(me, 10000 * USDX_DEC, me);
 
         gemA.harvest();
@@ -420,13 +420,13 @@ contract DssPsmCmeTest is DSTest , DSMath {
         assertEq(testRoute.amountOut(), 70);
     }
 
-    function test_harvest_under_collateralized_with_bonus_over_max_bonus_auction_amount() public {
+    function test_harvest_under_collateralized_with_bonus_over_bonus_auction_max_amount() public {
         usdx.approve(address(gemA));//token
         gemA.file("excess_delegator", address(excessDelegator));
         ctoken.setReward(100);
 
         hevm.warp(4 hours);
-        gemA.file("max_bonus_auction_amount", 50);
+        gemA.file("bonus_auction_max_amount", 50);
         gemA.join(me, 10000 * USDX_DEC, me);
 
         gemA.harvest();
@@ -441,7 +441,7 @@ contract DssPsmCmeTest is DSTest , DSMath {
         gemA.file("excess_delegator", address(excessDelegator));
         ctoken.setReward(10);
 
-        gemA.file("max_bonus_auction_amount", 200);
+        gemA.file("bonus_auction_max_amount", 200);
         gemA.file("bonus_auction_duration", 30*60);
         hevm.warp(45 minutes);
         gemA.join(me, 10000 * USDX_DEC, me);

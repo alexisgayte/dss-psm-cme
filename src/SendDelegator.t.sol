@@ -160,24 +160,24 @@ contract SendDelegatorTest is DSTest {
 
     }
 
-    function test_processDai_with_dai_under_max_dai_auction_amount() public {
+    function test_processDai_with_dai_under_dai_auction_max_amount() public {
         dai.transfer(address(sendDelegator), 100);
         assertEq(dai.balanceOf(address(sendDelegator)), 100);
 
         hevm.warp(4 hours);
-        sendDelegator.file("max_dai_auction_amount", 200);
+        sendDelegator.file("dai_auction_max_amount", 200);
         sendDelegator.processDai();
 
         assertEq(dai.balanceOf(address(sendDelegator)), 0);
         assertEq(dai.balanceOf(address(daiReserve)), 100);
     }
 
-    function test_processDai_with_dai_over_max_dai_auction_amount() public {
+    function test_processDai_with_dai_over_dai_auction_max_amount() public {
         dai.transfer(address(sendDelegator), 200);
         assertEq(dai.balanceOf(address(sendDelegator)), 200);
 
         hevm.warp(4 hours);
-        sendDelegator.file("max_dai_auction_amount", 50);
+        sendDelegator.file("dai_auction_max_amount", 50);
         sendDelegator.processDai();
 
         assertEq(dai.balanceOf(address(sendDelegator)), 150);
@@ -189,7 +189,7 @@ contract SendDelegatorTest is DSTest {
         dai.transfer(address(sendDelegator), 100);
         assertEq(dai.balanceOf(address(sendDelegator)), 100);
 
-        sendDelegator.file("max_dai_auction_amount", 200);
+        sendDelegator.file("dai_auction_max_amount", 200);
         sendDelegator.file("dai_auction_duration", 30*60);
         hevm.warp(45 minutes);
         sendDelegator.processDai();
@@ -257,24 +257,24 @@ contract SendDelegatorTest is DSTest {
 
     }
 
-    function test_processComp_with_comp_under_max_bonus_auction_amount() public {
+    function test_processComp_with_comp_under_bonus_auction_max_amount() public {
         bonusToken.transfer(address(sendDelegator), 100);
         assertEq(bonusToken.balanceOf(address(sendDelegator)), 100);
 
         hevm.warp(4 hours);
-        sendDelegator.file("max_bonus_auction_amount", 200);
+        sendDelegator.file("bonus_auction_max_amount", 200);
         sendDelegator.processComp();
 
         assertEq(bonusToken.balanceOf(address(sendDelegator)), 0);
         assertEq(bonusToken.balanceOf(address(bonusReserve)), 100);
     }
 
-    function test_processComp_with_comp_over_max_bonus_auction_amount() public {
+    function test_processComp_with_comp_over_bonus_auction_max_amount() public {
         bonusToken.transfer(address(sendDelegator), 200);
         assertEq(bonusToken.balanceOf(address(sendDelegator)), 200);
 
         hevm.warp(4 hours);
-        sendDelegator.file("max_bonus_auction_amount", 50);
+        sendDelegator.file("bonus_auction_max_amount", 50);
         sendDelegator.processComp();
 
         assertEq(bonusToken.balanceOf(address(sendDelegator)), 150);
@@ -286,7 +286,7 @@ contract SendDelegatorTest is DSTest {
         bonusToken.transfer(address(sendDelegator), 100);
         assertEq(bonusToken.balanceOf(address(sendDelegator)), 100);
 
-        sendDelegator.file("max_bonus_auction_amount", 200);
+        sendDelegator.file("bonus_auction_max_amount", 200);
         sendDelegator.file("bonus_auction_duration", 30*60);
         hevm.warp(45 minutes);
         sendDelegator.processComp();
