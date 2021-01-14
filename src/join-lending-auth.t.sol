@@ -119,7 +119,7 @@ contract JoinLendingAuthTest is DSTest {
         assertEq(vat.dai(me), 0);
 
         usdx.approve(address(gemA));
-        gemA.join(me, 100 * USDX_WAD, me);
+        gemA.join(me, 100 * USDX_WAD);
 
         assertEq(usdx.balanceOf(me), 900 * USDX_WAD);
         assertEq(vat.gem(ilkA, me), 100 * USDX_WAD * USDX_TO_18);
@@ -133,7 +133,7 @@ contract JoinLendingAuthTest is DSTest {
         assertEq(vat.dai(me), 0);
 
         usdx.approve(address(gemA));
-        gemA.join(me, 100 * USDX_WAD, me);
+        gemA.join(me, 100 * USDX_WAD);
 
         gemA.exit(me, 100 * USDX_WAD);
 
@@ -157,7 +157,7 @@ contract JoinLendingAuthTest is DSTest {
 
         gemA.deny(me);
         usdx.approve(address(gemA), uint(-1));
-        gemA.join(me, 10 * USDX_WAD, me);
+        gemA.join(me, 10 * USDX_WAD);
     }
 
     function testFail_direct_join_exit() public {
@@ -173,9 +173,9 @@ contract JoinLendingAuthTest is DSTest {
         gemA.file("excess_delegator", address(excessDelegator));
         ctoken.setReward(1);
 
-        gemA.join(me, 100 * USDX_WAD, me);
+        gemA.join(me, 100 * USDX_WAD);
         gemA.exit(me, 100 * USDX_WAD);
-        gemA.join(me, 100 * USDX_WAD, me);
+        gemA.join(me, 100 * USDX_WAD);
         gemA.harvest();
 
         assertTrue(excessDelegator.hasBeenCalled());
@@ -189,7 +189,7 @@ contract JoinLendingAuthTest is DSTest {
         gemA.file("excess_delegator", address(excessDelegator));
         ctoken.setReward(0);
 
-        gemA.join(me, 100 * USDX_WAD, me);
+        gemA.join(me, 100 * USDX_WAD);
         gemA.exit(me, 100 * USDX_WAD);
         gemA.harvest();
 
@@ -203,7 +203,7 @@ contract JoinLendingAuthTest is DSTest {
         ctoken.setReward(0);
         ctoken.addFeeIncome(address(gemA), 4 * USDX_WAD);
 
-        gemA.join(me, 100 * USDX_WAD, me);
+        gemA.join(me, 100 * USDX_WAD);
         vat.frob(ilkA, me, me, me, 100, 100);
         gemA.harvest();
         assertTrue(excessDelegator.hasBeenCalled());
@@ -217,7 +217,7 @@ contract JoinLendingAuthTest is DSTest {
         ctoken.setReward(1);
         ctoken.addFeeIncome(address(gemA), 4 * USDX_WAD);
 
-        gemA.join(me, 100 * USDX_WAD, me);
+        gemA.join(me, 100 * USDX_WAD);
         vat.frob(ilkA, me, me, me, 100, 100);
         gemA.harvest();
         assertTrue(excessDelegator.hasBeenCalled());
@@ -234,7 +234,7 @@ contract JoinLendingAuthTest is DSTest {
         assertEq(gemA.wards(address(me)), 1);
         assertEq(gemA.wards(address(spotGemA)), 1);
 
-        gemA.join(me, 100 * USDX_WAD, me);
+        gemA.join(me, 100 * USDX_WAD);
         vat.frob(ilkA, me, me, me, 100, 100);
         gemA.harvest();
         assertTrue(excessDelegator.hasBeenCalled());

@@ -58,8 +58,6 @@ contract SendDelegator {
     event File(bytes32 indexed what, uint256 data);
     event Rely(address indexed user);
     event Deny(address indexed user);
-    event RelyCall(address indexed user);
-    event DenyCall(address indexed user);
 
     // --- Math ---
     function min(uint256 x, uint256 y) internal pure returns (uint256 z) {

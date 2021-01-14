@@ -1,19 +1,12 @@
 pragma solidity 0.6.7;
 
 import { DaiJoinAbstract } from "dss-interfaces/dss/DaiJoinAbstract.sol";
+import { GemJoinAbstract } from "dss-interfaces/dss/GemJoinAbstract.sol";
 import { DaiAbstract } from "dss-interfaces/dss/DaiAbstract.sol";
+import { GemAbstract } from "dss-interfaces/ERC/GemAbstract.sol";
 import { VatAbstract } from "dss-interfaces/dss/VatAbstract.sol";
 import { VowAbstract } from "dss-interfaces/dss/VowAbstract.sol";
 
-
-interface AuthLendingGemJoinAbstract {
-    function dec() external view returns (uint256);
-    function vat() external view returns (address);
-    function ilk() external view returns (bytes32);
-    function join(address, uint256, address) external;
-    function exit(address, uint256) external;
-    function harvest() external;
-}
 
 // Peg Stability Module With Dai Leverage
 // Allows anyone to go between Dai and the Gem by pooling the liquidity
@@ -32,14 +25,15 @@ contract DssPsmCme {
     modifier lock() {require(unlocked == 1, 'DssPsmCme/Locked');unlocked = 0;_;unlocked = 1;}
 
 
-    VatAbstract         immutable public vat;
-    AuthLendingGemJoinAbstract immutable public gemJoin;
-    AuthLendingGemJoinAbstract immutable public leverageGemJoin;
+    VatAbstract         immutable private vat;
+    VowAbstract         immutable private vow;
+    bytes32             immutable private ilk;
+    bytes32             immutable private leverageIlk;
+    GemJoinAbstract     immutable private gemJoin;
+    GemJoinAbstract     immutable private leverageGemJoin;
+    DaiJoinAbstract     immutable private daiJoin;
+    GemAbstract         immutable public token;
     DaiAbstract         immutable public dai;
-    DaiJoinAbstract     immutable public daiJoin;
-    bytes32             immutable public ilk;
-    bytes32             immutable public leverageIlk;
-    VowAbstract         immutable public vow;
 
     uint256             immutable internal to18ConversionFactor;
 
@@ -51,24 +45,26 @@ contract DssPsmCme {
     event Rely(address indexed user);
     event Deny(address indexed user);
     event File(bytes32 indexed what, uint256 data);
-    event SellGem(address indexed owner, uint256 value, uint256 fee);
-    event BuyGem(address indexed owner, uint256 value, uint256 fee);
+    event Sell(address indexed owner, uint256 value, uint256 fee);
+    event Buy(address indexed owner, uint256 value, uint256 fee);
 
     // --- Init ---
     constructor(address gemJoin_, address leverageGemJoin_, address daiJoin_, address vow_) public {
         wards[msg.sender] = 1;
         emit Rely(msg.sender);
-        AuthLendingGemJoinAbstract gemJoin__ = gemJoin = AuthLendingGemJoinAbstract(gemJoin_);
-        AuthLendingGemJoinAbstract leverageGemJoin__ = leverageGemJoin = AuthLendingGemJoinAbstract(leverageGemJoin_);
+        GemJoinAbstract gemJoin__ = gemJoin = GemJoinAbstract(gemJoin_);
         DaiJoinAbstract daiJoin__ = daiJoin = DaiJoinAbstract(daiJoin_);
-        VatAbstract vat__ = vat = VatAbstract(address(gemJoin__.vat()));
-        DaiAbstract dai__ = dai = DaiAbstract(address(daiJoin__.dai()));
+        GemJoinAbstract leverageGemJoin__ = leverageGemJoin = GemJoinAbstract(leverageGemJoin_);
+        VatAbstract vat__   = vat   = VatAbstract(address(gemJoin__.vat()));
+        DaiAbstract dai__   = dai   = DaiAbstract(address(daiJoin__.dai()));
+        GemAbstract token__ = token = GemAbstract(address(gemJoin__.gem()));
         ilk = gemJoin__.ilk();
         leverageIlk = leverageGemJoin__.ilk();
         vow = VowAbstract(vow_);
         to18ConversionFactor = 10 ** (18 - gemJoin__.dec());
         require(dai__.approve(daiJoin_, uint256(-1)), "DssPsmCme/failed-approve");
         require(dai__.approve(leverageGemJoin_, uint256(-1)), "DssPsmCme/failed-approve");
+        require(token__.approve(gemJoin_, uint256(-1)), "DssPsmCme/failed-approve");
         vat__.hope(daiJoin_);
         price = 1*WAD;
     }
@@ -102,23 +98,21 @@ contract DssPsmCme {
     }
 
     // --- Primary Functions ---
-    function harvest() external lock {
-        leverageGemJoin.harvest();
-        gemJoin.harvest();
-    }
 
-    function sellGem(address usr, uint256 gemAmt) external lock {
+    function sell(address usr, uint256 gemAmt) external lock {
         uint256 gemAmt18 = mul(gemAmt, to18ConversionFactor);
         uint256 fee = mul(gemAmt18, tin) / WAD;
         uint256 daiAmt = sub(gemAmt18, fee);
 
-        emit SellGem(usr, gemAmt, fee);
+        emit Sell(usr, gemAmt, fee);
 
-        gemJoin.join(address(this), gemAmt, msg.sender);
+        require(token.transferFrom(msg.sender, address(this), gemAmt), "DssPsmCme/failed-sell-transfer");
+
+        gemJoin.join(address(this), gemAmt);
         vat.frob(ilk, address(this), address(this), address(this), int256(gemAmt18), int256(gemAmt18));
         daiJoin.exit(address(this), gemAmt18);
 
-        leverageGemJoin.join(address(this), gemAmt18, address(this));
+        leverageGemJoin.join(address(this), gemAmt18);
         vat.frob(leverageIlk, address(this), address(this), address(this), int256(gemAmt18), int256(gemAmt18));
         daiJoin.exit(usr, daiAmt);
 
@@ -126,14 +120,14 @@ contract DssPsmCme {
 
     }
 
-    function buyGem(address usr, uint256 gemAmt) external lock {
+    function buy(address usr, uint256 gemAmt) external lock {
         uint256 gemAmt18 = mul(gemAmt, to18ConversionFactor);
         uint256 fee = mul(gemAmt18, tout) / WAD;
         uint256 daiAmt = add(gemAmt18, fee);
 
-        emit BuyGem(usr, gemAmt, fee);
+        emit Buy(usr, gemAmt, fee);
 
-        require(dai.transferFrom(msg.sender, address(this), daiAmt), "DssPsmCme/failed-transfer");
+        require(dai.transferFrom(msg.sender, address(this), daiAmt), "DssPsmCme/failed-buy-transfer");
 
         daiJoin.join(address(this), gemAmt18);
         vat.frob(leverageIlk, address(this), address(this), address(this), -int256(gemAmt18), -int256(gemAmt18));

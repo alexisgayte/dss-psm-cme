@@ -227,7 +227,7 @@ contract DssPsmCmeTest is DSTest , DSMath {
         assertEq(vat.dai(me), 0);
 
         usdx.approve(address(gemA));
-        gemA.join(me, 100 * USDX_DEC, me);
+        gemA.join(me, 100 * USDX_DEC);
 
         assertEq(usdx.balanceOf(me), 9900 * USDX_DEC);
         assertEq(vat.gem(ilkA, me), 100 * USDX_DEC * USDX_TO_18);
@@ -241,7 +241,7 @@ contract DssPsmCmeTest is DSTest , DSMath {
         assertEq(vat.dai(me), 0);
 
         usdx.approve(address(gemA));
-        gemA.join(me, 100 * USDX_DEC, me);
+        gemA.join(me, 100 * USDX_DEC);
 
         gemA.exit(me, 100 * USDX_DEC);
 
@@ -265,7 +265,7 @@ contract DssPsmCmeTest is DSTest , DSMath {
 
         gemA.deny(me);
         usdx.approve(address(gemA), uint(-1));
-        gemA.join(me, 10 * USDX_DEC, me);
+        gemA.join(me, 10 * USDX_DEC);
     }
 
     function testFail_direct_join_exit() public {
@@ -285,7 +285,7 @@ contract DssPsmCmeTest is DSTest , DSMath {
         comptroller.setReward(100);
         ctoken.addFeeIncome(address(gemA), 1 * USDX_DEC);
 
-        gemA.join(me, 10000 * USDX_DEC, me);
+        gemA.join(me, 10000 * USDX_DEC);
         gemA.exit(me, 10000 * USDX_DEC);
         gemA.harvest();
 
@@ -302,7 +302,7 @@ contract DssPsmCmeTest is DSTest , DSMath {
         ctoken.addFeeIncome(address(gemA), 10 * USDX_DEC);
         comptroller.setReward(0);
 
-        gemA.join(me, 10000 * USDX_DEC, me);
+        gemA.join(me, 10000 * USDX_DEC);
         gemA.harvest();
 
         assertTrue(!excessDelegator.hasBeenCalled());
@@ -316,7 +316,7 @@ contract DssPsmCmeTest is DSTest , DSMath {
         ctoken.setReward(0);
         ctoken.addFeeIncome(address(gemA), 14 * USDX_DEC);
 
-        gemA.join(me, 10000 * USDX_DEC, me);
+        gemA.join(me, 10000 * USDX_DEC);
         vat.frob(ilkA, me, me, me, 10000, 10000);
         gemA.harvest();
         assertTrue(excessDelegator.hasBeenCalled());
@@ -329,7 +329,7 @@ contract DssPsmCmeTest is DSTest , DSMath {
         ctoken.setReward(1);
         ctoken.addFeeIncome(address(gemA), 14 * USDX_DEC);
 
-        gemA.join(me, 10000 * USDX_DEC, me);
+        gemA.join(me, 10000 * USDX_DEC);
         vat.frob(ilkA, me, me, me, 10000, 10000);
         gemA.harvest();
         assertTrue(excessDelegator.hasBeenCalled());
@@ -346,7 +346,7 @@ contract DssPsmCmeTest is DSTest , DSMath {
         assertEq(gemA.wards(address(me)), 1);
         assertEq(gemA.wards(address(spotGemA)), 1);
 
-        gemA.join(me, 10000 * USDX_DEC, me);
+        gemA.join(me, 10000 * USDX_DEC);
         vat.frob(ilkA, me, me, me, 10000, 10000);
 
         gemA.harvest();
@@ -361,7 +361,7 @@ contract DssPsmCmeTest is DSTest , DSMath {
         gemA.file("excess_delegator", address(excessDelegator));
         ctoken.setReward(0);
 
-        gemA.join(me, 10000 * USDX_DEC, me);
+        gemA.join(me, 10000 * USDX_DEC);
         gemA.harvest();
         assertTrue(!testRoute.hasBeenCalled());
     }
@@ -371,7 +371,7 @@ contract DssPsmCmeTest is DSTest , DSMath {
         gemA.file("excess_delegator", address(excessDelegator));
         ctoken.setReward(100);
 
-        gemA.join(me, 10000 * USDX_DEC, me);
+        gemA.join(me, 10000 * USDX_DEC);
 
         hevm.warp(4 hours);
         assertEq(bonusToken.balanceOf(address(gemA)), 700);
@@ -387,7 +387,7 @@ contract DssPsmCmeTest is DSTest , DSMath {
         gemA.file("excess_delegator", address(excessDelegator));
         ctoken.setReward(100);
 
-        gemA.join(me, 10000 * USDX_DEC, me);
+        gemA.join(me, 10000 * USDX_DEC);
 
         hevm.warp(4 hours);
         assertEq(bonusToken.balanceOf(address(gemA)), 700);
@@ -397,7 +397,7 @@ contract DssPsmCmeTest is DSTest , DSMath {
         assertTrue(testRoute.hasBeenCalled());
         hevm.warp(4 hours + 30 minutes);
 
-        gemA.join(me, 10000 * USDX_DEC, me);
+        gemA.join(me, 10000 * USDX_DEC);
         testRoute.reset();
         gemA.harvest();
 
@@ -412,7 +412,7 @@ contract DssPsmCmeTest is DSTest , DSMath {
 
         hevm.warp(4 hours);
         gemA.file("bonus_auction_max_amount", 200);
-        gemA.join(me, 10000 * USDX_DEC, me);
+        gemA.join(me, 10000 * USDX_DEC);
 
         gemA.harvest();
 
@@ -427,7 +427,7 @@ contract DssPsmCmeTest is DSTest , DSMath {
 
         hevm.warp(4 hours);
         gemA.file("bonus_auction_max_amount", 50);
-        gemA.join(me, 10000 * USDX_DEC, me);
+        gemA.join(me, 10000 * USDX_DEC);
 
         gemA.harvest();
 
@@ -444,7 +444,7 @@ contract DssPsmCmeTest is DSTest , DSMath {
         gemA.file("bonus_auction_max_amount", 200);
         gemA.file("bonus_auction_duration", 30*60);
         hevm.warp(45 minutes);
-        gemA.join(me, 10000 * USDX_DEC, me);
+        gemA.join(me, 10000 * USDX_DEC);
 
         gemA.harvest();
 
@@ -463,7 +463,7 @@ contract DssPsmCmeTest is DSTest , DSMath {
         assertEq(vat.dai(me), 0);
 
         usdx.approve(address(gemA));
-        gemA.join(me, 100 * USDX_DEC, me);
+        gemA.join(me, 100 * USDX_DEC);
 
         assertEq(usdx.balanceOf(me), 9900 * USDX_DEC);
         assertEq(vat.gem(ilkA, me), 100 * USDX_DEC * USDX_TO_18);
@@ -481,7 +481,7 @@ contract DssPsmCmeTest is DSTest , DSMath {
         assertEq(vat.dai(me), 0);
 
         usdx.approve(address(gemA));
-        gemA.join(me, 100 * USDX_DEC, me);
+        gemA.join(me, 100 * USDX_DEC);
 
         assertEq(usdx.balanceOf(me), 9900 * USDX_DEC);
         assertEq(vat.gem(ilkA, me), 100 * USDX_DEC * USDX_TO_18);

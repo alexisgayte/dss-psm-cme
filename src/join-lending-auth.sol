@@ -48,11 +48,11 @@ interface CalLike {
 
 // Authed GemJoin for a token that has a lower precision than 18 and it has decimals (like USDC)
 
-contract LendingAuthGemJoin is LibNote{
+contract LendingAuthGemJoin is LibNote {
     // --- Auth ---
     mapping (address => uint256) public wards;
-    function rely(address usr) external note auth {wards[usr] = 1;}
-    function deny(address usr) external note auth { wards[usr] = 0;}
+    function rely(address usr) external auth note { wards[usr] = 1; emit Rely(usr); }
+    function deny(address usr) external auth note { wards[usr] = 0; emit Deny(usr); }
     modifier auth { require(wards[msg.sender] == 1); _; }
 
     // --- Lock ---
@@ -72,6 +72,8 @@ contract LendingAuthGemJoin is LibNote{
     GemLike public immutable bonusToken;
     uint256 public immutable gemTo18ConversionFactor;
 
+    event Rely(address indexed user);
+    event Deny(address indexed user);
     event File(bytes32 indexed what, address data);
     event Delegate(address indexed sender, address indexed delegator, uint256 bonus, uint256 gem);
 
@@ -148,15 +150,15 @@ contract LendingAuthGemJoin is LibNote{
 
     // --- Join ---
 
-    function join(address urn, uint256 wad, address msgSender) external note auth {
+    function join(address guy, uint256 wad) external note auth {
         require(live == 1, "LendingAuthGemJoin/not-live");
         uint256 wad18 = mul(wad, gemTo18ConversionFactor);
         require(int256(wad18) >= 0, "LendingAuthGemJoin/overflow");
-        vat.slip(ilk, urn, int256(wad18));
+        vat.slip(ilk, guy, int256(wad18));
 
         total = add(total, wad);
 
-        require(gem.transferFrom(msgSender, address(this), wad), "LendingAuthGemJoin/failed-transfer-join");
+        require(gem.transferFrom(guy, address(this), wad), "LendingAuthGemJoin/failed-transfer-join");
         require(gem.approve(address(ltk), wad), "LendingAuthGemJoin/failed-approve-mint");
         require(ltk.mint(wad) == 0, "LendingAuthGemJoin/failed-mint");
     }

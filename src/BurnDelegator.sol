@@ -59,8 +59,6 @@ contract BurnDelegator {
     event File(bytes32 indexed what, uint256 data);
     event Rely(address indexed user);
     event Deny(address indexed user);
-    event RelyCall(address indexed user);
-    event DenyCall(address indexed user);
 
     // --- Math ---
     function min(uint256 x, uint256 y) internal pure returns (uint256 z) {
@@ -87,15 +85,15 @@ contract BurnDelegator {
         wards[msg.sender] = 1;
         live = 1;
 
-        mkr = GemLike(mkr_);
-        dai = GemLike(dai_);
-        usdc = GemLike(usdc_);
+        mkr        = GemLike(mkr_);
+        dai        = GemLike(dai_);
+        usdc       = GemLike(usdc_);
         bonusToken = GemLike(bonusToken_);
 
-        bonusAuctionDuration = 3600;
+        bonusAuctionDuration  = 3600;
         bonusAuctionMaxAmount = 500;
-        daiAuctionDuration = 3600;
-        daiAuctionMaxAmount = 500;
+        daiAuctionDuration    = 3600;
+        daiAuctionMaxAmount   = 500;
     }
 
 

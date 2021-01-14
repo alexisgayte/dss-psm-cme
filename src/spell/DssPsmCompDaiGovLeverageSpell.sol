@@ -28,17 +28,13 @@ import {LendingLeverageAuthGemJoin} from "../join-lending-leverage-auth.sol";
 interface PsmCdlAbstract {
     function vat() external returns (address);
     function daiJoin() external returns (address);
-    function daiLendingJoin() external returns (address);
-    function daiLendingLeverageJoin() external returns (address);
+    function leverageJoin() external returns (address);
     function dai() external returns (address);
-    function daiLendingIlk() external returns (bytes32);
-    function daiLendingLeverageIlk() external returns (bytes32);
-    function file(bytes32 what, uint256 data) external;
+    function leverageIlk() external returns (bytes32);
 
-    function leverageLendingVault(uint256 amount) external;
-    function leverageLendingLeverageVault(uint256 amount) external;
-    function deleverageLendingVault(uint256 amount) external;
-    function deleverageLendingLeverageVault(uint256 amount) external;
+    function file(bytes32 what, uint256 data) external;
+    function leverage(uint256 amount) external;
+    function deleverage(uint256 amount) external;
 }
 
 
@@ -53,7 +49,7 @@ contract SpellAction {
     //     https://changelog.makerdao.com/releases/mainnet/active/contracts.json
     ChainlogAbstract constant CHANGELOG = ChainlogAbstract(0xdA0Ab1e0017DEbCd72Be8599041a2aa3bA7e740F);
 
-    bytes32 constant ILK_PSM_COMP_DAI_A           = "PSM-COMP-DAI-A";
+    bytes32 constant ILK_PSM_COMP_LEND_DAI_A      = "PSM-COMP-LEND-DAI-A";
     bytes32 constant ILK_PSM_COMP_FARM_DAI_A      = "PSM-COMP-FARM-DAI-A";
 
 // decimals & precision
@@ -86,33 +82,40 @@ contract SpellAction {
 
     function execute() external limited {
 
-        // Bump version
+        // TODO Bump version
         CHANGELOG.setVersion("1.2.4");
 
         // Create Psm cme / lender join / delegator
         address MCD_VAT                   = CHANGELOG.getAddress("MCD_VAT");
         address MCD_DAI                   = CHANGELOG.getAddress("MCD_DAI");
         address MCD_JOIN_DAI              = CHANGELOG.getAddress("MCD_JOIN_DAI");
-        address MCD_JOIN_COMP_DAI_A       = CHANGELOG.getAddress("MCD_JOIN_COMP_DAI_A");
+        address MCD_JOIN_COMP_LEND_DAI_A  = CHANGELOG.getAddress("MCD_JOIN_COMP_LEND_DAI_A");
         address MCD_JOIN_COMP_FARM_DAI_A  = CHANGELOG.getAddress("MCD_JOIN_COMP_FARM_DAI_A");
 
-        address MCD_PSM_COMP_DAI_LEVERAGE = address(new DssPsmCdl(MCD_JOIN_COMP_DAI_A, MCD_JOIN_COMP_FARM_DAI_A, MCD_JOIN_DAI));
+        address MCD_PSM_COMP_LEND_DAI_LEVERAGE = address(new DssPsmCdl(MCD_JOIN_COMP_LEND_DAI_A, MCD_JOIN_DAI));
+        address MCD_PSM_COMP_FARM_DAI_LEVERAGE = address(new DssPsmCdl(MCD_JOIN_COMP_FARM_DAI_A, MCD_JOIN_DAI));
 
-        require(PsmCdlAbstract(MCD_PSM_COMP_DAI_LEVERAGE).vat() == MCD_VAT, "psm-vat-not-match");
-        require(PsmCdlAbstract(MCD_PSM_COMP_DAI_LEVERAGE).dai() == MCD_DAI, "psm-dai-not-match");
-        require(PsmCdlAbstract(MCD_PSM_COMP_DAI_LEVERAGE).daiJoin() == MCD_JOIN_DAI, "psm-dai-join-not-match");
-        require(PsmCdlAbstract(MCD_PSM_COMP_DAI_LEVERAGE).daiLendingJoin() == MCD_JOIN_COMP_DAI_A, "psm-dai-lending-join-not-match");
-        require(PsmCdlAbstract(MCD_PSM_COMP_DAI_LEVERAGE).daiLendingLeverageJoin() == MCD_JOIN_COMP_FARM_DAI_A, "psm-dai-farming-join-not-match");
-        require(PsmCdlAbstract(MCD_PSM_COMP_DAI_LEVERAGE).daiLendingIlk() == ILK_PSM_COMP_DAI_A, "psm-ilk-not-match");
-        require(PsmCdlAbstract(MCD_PSM_COMP_DAI_LEVERAGE).daiLendingLeverageIlk() == ILK_PSM_COMP_FARM_DAI_A, "psm-ilk-not-match");
+        require(PsmCdlAbstract(MCD_PSM_COMP_LEND_DAI_LEVERAGE).vat()          == MCD_VAT, "psm-vat-not-match");
+        require(PsmCdlAbstract(MCD_PSM_COMP_LEND_DAI_LEVERAGE).dai()          == MCD_DAI, "psm-dai-not-match");
+        require(PsmCdlAbstract(MCD_PSM_COMP_LEND_DAI_LEVERAGE).daiJoin()      == MCD_JOIN_DAI, "psm-dai-join-not-match");
+        require(PsmCdlAbstract(MCD_PSM_COMP_LEND_DAI_LEVERAGE).leverageJoin() == MCD_JOIN_COMP_LEND_DAI_A, "psm-dai-leverage-join-not-match");
+        require(PsmCdlAbstract(MCD_PSM_COMP_LEND_DAI_LEVERAGE).leverageIlk()  == ILK_PSM_COMP_LEND_DAI_A, "psm-ilk-not-match");
 
-        // Allow PSM-CME to join
-        LendingAuthGemJoin(MCD_JOIN_COMP_DAI_A).rely(address(MCD_PSM_COMP_DAI_LEVERAGE));
-        LendingLeverageAuthGemJoin(MCD_JOIN_COMP_FARM_DAI_A).rely(address(MCD_PSM_COMP_DAI_LEVERAGE));
+        require(PsmCdlAbstract(MCD_PSM_COMP_FARM_DAI_LEVERAGE).vat()          == MCD_VAT, "psm-vat-not-match");
+        require(PsmCdlAbstract(MCD_PSM_COMP_FARM_DAI_LEVERAGE).dai()          == MCD_DAI, "psm-dai-not-match");
+        require(PsmCdlAbstract(MCD_PSM_COMP_FARM_DAI_LEVERAGE).daiJoin()      == MCD_JOIN_DAI, "psm-dai-join-not-match");
+        require(PsmCdlAbstract(MCD_PSM_COMP_FARM_DAI_LEVERAGE).leverageJoin() == MCD_JOIN_COMP_FARM_DAI_A, "psm-dai-leverage-join-not-match");
+        require(PsmCdlAbstract(MCD_PSM_COMP_FARM_DAI_LEVERAGE).leverageIlk()  == ILK_PSM_COMP_FARM_DAI_A, "psm-ilk-not-match");
 
-        DaiJoinAbstract(MCD_DAI).rely(address(MCD_PSM_COMP_DAI_LEVERAGE));
+        // Allow PSM-CMEs to join
+        LendingAuthGemJoin(MCD_JOIN_COMP_LEND_DAI_A).rely(address(MCD_PSM_COMP_LEND_DAI_LEVERAGE));
+        LendingAuthGemJoin(MCD_JOIN_COMP_FARM_DAI_A).rely(address(MCD_PSM_COMP_FARM_DAI_LEVERAGE));
 
-        CHANGELOG.setAddress("MCD_PSM_COMP_DAI_LEVERAGE", MCD_PSM_COMP_DAI_LEVERAGE);
+        DaiJoinAbstract(MCD_DAI).rely(address(MCD_PSM_COMP_LEND_DAI_LEVERAGE));
+        DaiJoinAbstract(MCD_DAI).rely(address(MCD_PSM_COMP_FARM_DAI_LEVERAGE));
+
+        CHANGELOG.setAddress("MCD_PSM_COMP_LEND_DAI_LEVERAGE", MCD_PSM_COMP_LEND_DAI_LEVERAGE);
+        CHANGELOG.setAddress("MCD_PSM_COMP_FARM_DAI_LEVERAGE", MCD_PSM_COMP_FARM_DAI_LEVERAGE);
 
     }
 }

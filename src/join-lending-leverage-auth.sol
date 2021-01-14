@@ -47,8 +47,8 @@ interface RouteLike {
 contract LendingLeverageAuthGemJoin is LibNote, DSMath {
     // --- Auth ---
     mapping (address => uint256) public wards;
-    function rely(address usr) external note auth {wards[usr] = 1;}
-    function deny(address usr) external note auth { wards[usr] = 0;}
+    function rely(address usr) external note auth { wards[usr] = 1; emit Rely(usr); }
+    function deny(address usr) external note auth { wards[usr] = 0; emit Deny(usr); }
     modifier auth { require(wards[msg.sender] == 1); _; }
 
     // --- Lock ---
@@ -76,6 +76,8 @@ contract LendingLeverageAuthGemJoin is LibNote, DSMath {
     uint256 public cfMax;
     ComLike public lender;
 
+    event Rely(address indexed user);
+    event Deny(address indexed user);
     event File(bytes32 indexed what, address data);
     event File(bytes32 indexed what, uint256 data);
     event Delegate(address indexed sender, address indexed delegator, uint256 bonus, uint256 gem);
@@ -145,7 +147,7 @@ contract LendingLeverageAuthGemJoin is LibNote, DSMath {
     }
 
     // --- harvest ---
-    function harvest() external lock auth {
+    function harvest() external lock note auth {
         address[] memory ctokens = new address[](1);
         address[] memory users   = new address[](1);
         ctokens[0] = address(ltk);
@@ -220,14 +222,14 @@ contract LendingLeverageAuthGemJoin is LibNote, DSMath {
 
     // --- Join method ---
 
-    function join(address urn, uint256 wad, address msgSender) public note auth lock {
+    function join(address guy, uint256 wad) public note auth lock {
         require(live == 1, "LendingLeverageAuthGemJoin/not-live");
         uint256 wad18 = mul(wad, 10 ** (18 - dec));
         require(int256(wad18) >= 0, "LendingLeverageAuthGemJoin/overflow");
-        vat.slip(ilk, urn, int256(wad18));
+        vat.slip(ilk, guy, int256(wad18));
         total = add(total, wad);
 
-        require(gem.transferFrom(msgSender, address(this), wad), "LendingLeverageAuthGemJoin/failed-transfer");
+        require(gem.transferFrom(guy, address(this), wad), "LendingLeverageAuthGemJoin/failed-transfer");
         require(ltk.mint(wad) == 0, "LendingLeverageAuthGemJoin/failed-mint");
 
         _updateLeverage(0);
