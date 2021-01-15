@@ -25,13 +25,13 @@ contract DssPsmCme {
     modifier lock() {require(unlocked == 1, 'DssPsmCme/Locked');unlocked = 0;_;unlocked = 1;}
 
 
-    VatAbstract         immutable private vat;
-    VowAbstract         immutable private vow;
-    bytes32             immutable private ilk;
-    bytes32             immutable private leverageIlk;
-    GemJoinAbstract     immutable private gemJoin;
-    GemJoinAbstract     immutable private leverageGemJoin;
-    DaiJoinAbstract     immutable private daiJoin;
+    VatAbstract         immutable public vat;
+    VowAbstract         immutable public vow;
+    bytes32             immutable public ilk;
+    bytes32             immutable public leverageIlk;
+    GemJoinAbstract     immutable public gemJoin;
+    GemJoinAbstract     immutable public leverageGemJoin;
+    DaiJoinAbstract     immutable public daiJoin;
     GemAbstract         immutable public token;
     DaiAbstract         immutable public dai;
 

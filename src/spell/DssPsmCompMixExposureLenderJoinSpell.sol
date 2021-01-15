@@ -19,8 +19,9 @@ import "lib/dss/lib/ds-value/src/value.sol";
 import "lib/dss/src/flip.sol";
 
 import "../DssPsmCme.sol";
-import {LendingAuthGemJoin} from "../join-lending-auth.sol";
+import { LendingAuthGemJoin } from "../join-lending-auth.sol";
 import { BurnDelegator } from "../BurnDelegator.sol";
+import { LendingHarvest } from "../LendingHarvest.sol";
 
 interface PsmCmeAbstract {
     function dai() external returns (address);
@@ -28,6 +29,10 @@ interface PsmCmeAbstract {
     function file(bytes32 what, uint256 data) external;
     function sell(address usr, uint256 gemAmt) external;
     function buy(address usr, uint256 gemAmt) external;
+}
+
+interface HarvestAbstract {
+    function lendingJoin() external returns (address);
 }
 
 interface DelegatorAbstract {
@@ -38,7 +43,6 @@ interface DelegatorAbstract {
     function processComp() external;
     function processUsdc() external;
 }
-
 
 
 contract SpellAction {
@@ -94,57 +98,44 @@ contract SpellAction {
         // Bump version
         CHANGELOG.setVersion("1.2.4");
 
-        // Create Psm cme / lender join / delegator
+        // Create Psm cme / lender join
         {
-            address MCD_VAT         = CHANGELOG.getAddress("MCD_VAT");
-            address MCD_JUG         = CHANGELOG.getAddress("MCD_JUG");
-            address USDC            = CHANGELOG.getAddress("USDC");
-            address COMP            = CHANGELOG.getAddress("COMP");
-            address MCD_DAI         = CHANGELOG.getAddress("MCD_DAI");
-            address MCD_JOIN_DAI    = CHANGELOG.getAddress("MCD_JOIN_DAI");
-            address MCD_VOW         = CHANGELOG.getAddress("MCD_VOW");
-            address MCD_PSM_USDC_A  = CHANGELOG.getAddress("MCD_PSM_USDC_A");
-            address MCD_GOV         = CHANGELOG.getAddress("MCD_GOV");
+            address MCD_VAT               = CHANGELOG.getAddress("MCD_VAT");
+            address MCD_JUG               = CHANGELOG.getAddress("MCD_JUG");
+            address USDC                  = CHANGELOG.getAddress("USDC");
+            address COMP                  = CHANGELOG.getAddress("COMP");
+            address MCD_DAI               = CHANGELOG.getAddress("MCD_DAI");
+            address MCD_JOIN_DAI          = CHANGELOG.getAddress("MCD_JOIN_DAI");
+            address MCD_VOW               = CHANGELOG.getAddress("MCD_VOW");
 
-
-            address ASSERT_BURN_DELEGATOR     = address(new BurnDelegator(address(MCD_GOV), address(MCD_DAI), address(USDC), address(COMP)));
             address MCD_JOIN_COMP_LEND_USDC_A = address(new LendingAuthGemJoin(address(MCD_VAT), ILK_PSM_COMP_LEND_USDC_A, address(USDC), address(CUSDC), address(COMP)));
             address MCD_JOIN_COMP_LEND_DAI_A  = address(new LendingAuthGemJoin(address(MCD_VAT), ILK_PSM_COMP_LEND_DAI_A, address(MCD_DAI), address(CDAI), address(COMP)));
             address MCD_PSM_COMP_LEND_USDC_A  = address(new DssPsmCme(address(MCD_JOIN_COMP_LEND_USDC_A), address(MCD_JOIN_COMP_LEND_DAI_A), address(MCD_JOIN_DAI), address(MCD_VOW)));
 
-            require(GemJoinAbstract(MCD_JOIN_COMP_LEND_USDC_A).vat()   == MCD_VAT, "join-vat-not-match");
-            require(GemJoinAbstract(MCD_JOIN_COMP_LEND_USDC_A).ilk()   == ILK_PSM_COMP_LEND_USDC_A, "join-ilk-not-match");
-            require(GemJoinAbstract(MCD_JOIN_COMP_LEND_USDC_A).gem()   == USDC, "join-gem-not-match");
-            require(GemJoinAbstract(MCD_JOIN_COMP_LEND_USDC_A).dec()   == DSTokenAbstract(USDC).decimals(), "join-dec-not-match");
+            require(GemJoinAbstract(MCD_JOIN_COMP_LEND_USDC_A).vat()        == MCD_VAT, "join-vat-not-match");
+            require(GemJoinAbstract(MCD_JOIN_COMP_LEND_USDC_A).ilk()        == ILK_PSM_COMP_LEND_USDC_A, "join-ilk-not-match");
+            require(GemJoinAbstract(MCD_JOIN_COMP_LEND_USDC_A).gem()        == USDC, "join-gem-not-match");
+            require(GemJoinAbstract(MCD_JOIN_COMP_LEND_USDC_A).dec()        == DSTokenAbstract(USDC).decimals(), "join-dec-not-match");
 
-            require(GemJoinAbstract(MCD_JOIN_COMP_LEND_DAI_A).vat()    == MCD_VAT, "join-vat-not-match");
-            require(GemJoinAbstract(MCD_JOIN_COMP_LEND_DAI_A).ilk()    == ILK_PSM_COMP_LEND_DAI_A, "join-ilk-not-match");
-            require(GemJoinAbstract(MCD_JOIN_COMP_LEND_DAI_A).gem()    == MCD_DAI, "join-gem-not-match");
-            require(GemJoinAbstract(MCD_JOIN_COMP_LEND_DAI_A).dec()    == DSTokenAbstract(MCD_DAI).decimals(), "join-dec-not-match");
+            require(GemJoinAbstract(MCD_JOIN_COMP_LEND_DAI_A).vat()         == MCD_VAT, "join-vat-not-match");
+            require(GemJoinAbstract(MCD_JOIN_COMP_LEND_DAI_A).ilk()         == ILK_PSM_COMP_LEND_DAI_A, "join-ilk-not-match");
+            require(GemJoinAbstract(MCD_JOIN_COMP_LEND_DAI_A).gem()         == MCD_DAI, "join-gem-not-match");
+            require(GemJoinAbstract(MCD_JOIN_COMP_LEND_DAI_A).dec()         == DSTokenAbstract(MCD_DAI).decimals(), "join-dec-not-match");
 
-            require(PsmCmeAbstract(MCD_PSM_COMP_LEND_USDC_A).dai()     == MCD_DAI, "psm-dai-not-match");
-            require(PsmCmeAbstract(MCD_PSM_COMP_LEND_USDC_A).token()   == USDC, "psm-vow-not-match");
+            require(PsmCmeAbstract(MCD_PSM_COMP_LEND_USDC_A).dai()          == MCD_DAI, "psm-dai-not-match");
+            require(PsmCmeAbstract(MCD_PSM_COMP_LEND_USDC_A).token()        == USDC, "psm-vow-not-match");
 
             // Allow new Join to modify Vat registry
             VatAbstract(MCD_VAT).rely(address(MCD_JOIN_COMP_LEND_USDC_A));
             VatAbstract(MCD_VAT).rely(address(MCD_JOIN_COMP_LEND_DAI_A));
 
-            // link and authorized Join lender to excessDelegator
-            LendingAuthGemJoin(ASSERT_BURN_DELEGATOR).rely(address(MCD_JOIN_COMP_LEND_USDC_A));
-            LendingAuthGemJoin(ASSERT_BURN_DELEGATOR).rely(address(MCD_JOIN_COMP_LEND_DAI_A));
-            LendingAuthGemJoin(MCD_JOIN_COMP_LEND_USDC_A).file("excess_delegator", address(ASSERT_BURN_DELEGATOR));
-            LendingAuthGemJoin(MCD_JOIN_COMP_LEND_DAI_A).file("excess_delegator", address(ASSERT_BURN_DELEGATOR));
-
             // Allow PSM-CME to join
             LendingAuthGemJoin(MCD_JOIN_COMP_LEND_USDC_A).rely(address(MCD_PSM_COMP_LEND_USDC_A));
             LendingAuthGemJoin(MCD_JOIN_COMP_LEND_DAI_A).rely(address(MCD_PSM_COMP_LEND_USDC_A));
+
             // Set PSM-CME param
             DssPsmCme(MCD_PSM_COMP_LEND_USDC_A).file("tin", 1 * WAD / 1000);
             DssPsmCme(MCD_PSM_COMP_LEND_USDC_A).file("tout", 1 * WAD / 1000);
-
-            // set Delegator param
-            DelegatorAbstract(ASSERT_BURN_DELEGATOR).file("psm", address(MCD_PSM_USDC_A));
-            DelegatorAbstract(ASSERT_BURN_DELEGATOR).file("route", address(UNISWAP_ROUTER_V2));
 
             VatAbstract(MCD_VAT).init(ILK_PSM_COMP_LEND_USDC_A);
             VatAbstract(MCD_VAT).init(ILK_PSM_COMP_LEND_DAI_A);
@@ -152,14 +143,59 @@ contract SpellAction {
             JugAbstract(MCD_JUG).init(ILK_PSM_COMP_LEND_DAI_A);
 
 
-            CHANGELOG.setAddress("ASSERT_BURN_DELEGATOR", ASSERT_BURN_DELEGATOR);
             CHANGELOG.setAddress("MCD_JOIN_COMP_LEND_USDC_A", MCD_JOIN_COMP_LEND_USDC_A);
             CHANGELOG.setAddress("MCD_JOIN_COMP_LEND_DAI_A", MCD_JOIN_COMP_LEND_DAI_A);
             CHANGELOG.setAddress("MCD_PSM_COMP_LEND_USDC_A", MCD_PSM_COMP_LEND_USDC_A);
-            CHANGELOG.setAddress("UNISWAP_ROUTER_V2", UNISWAP_ROUTER_V2);
             CHANGELOG.setAddress("CDAI", CDAI);
             CHANGELOG.setAddress("CUSDC", CUSDC);
 
+        }
+
+        // Create delegator
+        {
+
+            address USDC                       = CHANGELOG.getAddress("USDC");
+            address COMP                       = CHANGELOG.getAddress("COMP");
+            address MCD_DAI                    = CHANGELOG.getAddress("MCD_DAI");
+            address MCD_JOIN_COMP_LEND_USDC_A  = CHANGELOG.getAddress("MCD_JOIN_COMP_LEND_USDC_A");
+            address MCD_JOIN_COMP_LEND_DAI_A   = CHANGELOG.getAddress("MCD_JOIN_COMP_LEND_DAI_A");
+            address MCD_PSM_USDC_A             = CHANGELOG.getAddress("MCD_PSM_USDC_A");
+            address MCD_GOV                    = CHANGELOG.getAddress("MCD_GOV");
+
+
+            address ASSERT_BURN_DELEGATOR = address(new BurnDelegator(address(MCD_GOV), address(MCD_DAI), address(USDC), address(COMP)));
+
+            // link Join lender to excessDelegator
+            LendingAuthGemJoin(MCD_JOIN_COMP_LEND_USDC_A).file("excess_delegator", address(ASSERT_BURN_DELEGATOR));
+            LendingAuthGemJoin(MCD_JOIN_COMP_LEND_DAI_A).file("excess_delegator", address(ASSERT_BURN_DELEGATOR));
+
+            // set Delegator param
+            DelegatorAbstract(ASSERT_BURN_DELEGATOR).file("psm", address(MCD_PSM_USDC_A));
+            DelegatorAbstract(ASSERT_BURN_DELEGATOR).file("route", address(UNISWAP_ROUTER_V2));
+
+            CHANGELOG.setAddress("ASSERT_BURN_DELEGATOR", ASSERT_BURN_DELEGATOR);
+            CHANGELOG.setAddress("UNISWAP_ROUTER_V2", UNISWAP_ROUTER_V2);
+
+        }
+
+        // Create Harvester
+        {
+
+            address MCD_JOIN_COMP_LEND_DAI_A  = CHANGELOG.getAddress("MCD_JOIN_COMP_LEND_DAI_A");
+            address MCD_JOIN_COMP_LEND_USDC_A = CHANGELOG.getAddress("MCD_JOIN_COMP_LEND_USDC_A");
+
+            address HARVEST_COMP_LEND_DAI_A   = address(new LendingHarvest(address(MCD_JOIN_COMP_LEND_DAI_A)));
+            address HARVEST_COMP_LEND_USDC_A  = address(new LendingHarvest(address(MCD_JOIN_COMP_LEND_USDC_A)));
+
+            require(HarvestAbstract(HARVEST_COMP_LEND_USDC_A).lendingJoin() == MCD_JOIN_COMP_LEND_USDC_A, "join-ilk-not-match");
+            require(HarvestAbstract(HARVEST_COMP_LEND_DAI_A).lendingJoin()  == MCD_JOIN_COMP_LEND_DAI_A, "join-ilk-not-match");
+
+            // Allow Harvest to join
+            LendingAuthGemJoin(MCD_JOIN_COMP_LEND_USDC_A).rely(address(HARVEST_COMP_LEND_USDC_A));
+            LendingAuthGemJoin(MCD_JOIN_COMP_LEND_DAI_A).rely(address(HARVEST_COMP_LEND_DAI_A));
+
+            CHANGELOG.setAddress("HARVEST_COMP_LEND_USDC_A", HARVEST_COMP_LEND_USDC_A);
+            CHANGELOG.setAddress("HARVEST_COMP_LEND_DAI_A", HARVEST_COMP_LEND_DAI_A);
         }
 
         // create flip for Join lender USDC and DAI

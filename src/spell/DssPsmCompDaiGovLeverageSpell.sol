@@ -23,7 +23,7 @@ import "lib/dss/src/flip.sol";
 
 import "../DssPsmCdl.sol";
 import {LendingAuthGemJoin} from "../join-lending-auth.sol";
-import {LendingLeverageAuthGemJoin} from "../join-lending-leverage-auth.sol";
+import {FarmingAuthGemJoin} from "../join-farming-auth.sol";
 
 interface PsmCdlAbstract {
     function vat() external returns (address);
@@ -109,7 +109,7 @@ contract SpellAction {
 
         // Allow PSM-CMEs to join
         LendingAuthGemJoin(MCD_JOIN_COMP_LEND_DAI_A).rely(address(MCD_PSM_COMP_LEND_DAI_LEVERAGE));
-        LendingAuthGemJoin(MCD_JOIN_COMP_FARM_DAI_A).rely(address(MCD_PSM_COMP_FARM_DAI_LEVERAGE));
+        FarmingAuthGemJoin(MCD_JOIN_COMP_FARM_DAI_A).rely(address(MCD_PSM_COMP_FARM_DAI_LEVERAGE));
 
         DaiJoinAbstract(MCD_DAI).rely(address(MCD_PSM_COMP_LEND_DAI_LEVERAGE));
         DaiJoinAbstract(MCD_DAI).rely(address(MCD_PSM_COMP_FARM_DAI_LEVERAGE));

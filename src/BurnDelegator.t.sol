@@ -35,7 +35,7 @@ contract TestPSM {
 }
 
 
-contract SellDelegotorTest is DSTest {
+contract SellDelegatorTest is DSTest {
     
     Hevm hevm;
 

@@ -13,7 +13,7 @@ import "./stub/TestRoute.stub.sol";
 import "./testhelper/TestToken.sol";
 import "./testhelper/MkrTokenAuthority.sol";
 
-import "./join-lending-leverage-auth.sol";
+import "./join-farming-auth.sol";
 
 
 interface Hevm {
@@ -50,7 +50,7 @@ contract DssPsmCmeTest is DSTest , DSMath {
     TestRoute testRoute;
     TestComptroller comptroller;
 
-    LendingLeverageAuthGemJoin gemA;
+    FarmingAuthGemJoin gemA;
 
     // CHEAT_CODE = 0x7109709ECfa91a80626fF3989D68f67F5b1DD12D
     bytes20 constant CHEAT_CODE =
@@ -109,7 +109,7 @@ contract DssPsmCmeTest is DSTest , DSMath {
         comptroller = new TestComptroller(ctoken , bonusToken);
         bonusAuthority.rely(address(comptroller));
 
-        gemA = new LendingLeverageAuthGemJoin(address(vat), ilkA, address(usdx), address(ctoken), address(bonusToken), address(comptroller));
+        gemA = new FarmingAuthGemJoin(address(vat), ilkA, address(usdx), address(ctoken), address(bonusToken), address(comptroller));
         gemA.rely(me);
         vat.rely(address(gemA));
         gemA.file("cf_target", 70 * WAD / 100);

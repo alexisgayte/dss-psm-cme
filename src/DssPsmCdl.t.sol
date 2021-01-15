@@ -16,7 +16,7 @@ import "./stub/TestComptroller.stub.sol";
 import "./testhelper/TestToken.sol";
 import "./testhelper/MkrTokenAuthority.sol";
 
-import {LendingLeverageAuthGemJoin} from "./join-lending-leverage-auth.sol";
+import {FarmingAuthGemJoin} from "./join-farming-auth.sol";
 import "./DssPsmCdl.sol";
 
 interface Hevm {
@@ -68,7 +68,7 @@ contract DssPsmCdlTest is DSTest {
 
     TestDelegator excessDelegator;
 
-    LendingLeverageAuthGemJoin gemA;
+    FarmingAuthGemJoin gemA;
 
     DssPsmCdl psmC;
 
@@ -123,7 +123,7 @@ contract DssPsmCdlTest is DSTest {
         comptroller = new TestComptroller(cdai , bonusToken);
         bonusAuthority.rely(address(comptroller));
 
-        gemA = new LendingLeverageAuthGemJoin(address(vat), ilkA, address(dai), address(cdai), address(bonusToken), address(comptroller));
+        gemA = new FarmingAuthGemJoin(address(vat), ilkA, address(dai), address(cdai), address(bonusToken), address(comptroller));
         gemA.file("cf_target", 70 * WAD / 100);
         gemA.file("route", address(testRoute));
         gemA.file("cf_max", 75 * WAD / 100);

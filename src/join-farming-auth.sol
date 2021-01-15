@@ -44,7 +44,7 @@ interface RouteLike {
 }
 
 
-contract LendingLeverageAuthGemJoin is LibNote, DSMath {
+contract FarmingAuthGemJoin is LibNote, DSMath {
     // --- Auth ---
     mapping (address => uint256) public wards;
     function rely(address usr) external note auth { wards[usr] = 1; emit Rely(usr); }
@@ -94,7 +94,7 @@ contract LendingLeverageAuthGemJoin is LibNote, DSMath {
         lender = ComLike(lender_);
 
         dec = gem.decimals();
-        require(dec <= 18, "LendingLeverageAuthGemJoin/decimals-18-or-higher");
+        require(dec <= 18, "FarmingAuthGemJoin/decimals-18-or-higher");
         gemTo18ConversionFactor = 10 ** (18 - dec);
 
         total = 0;
@@ -107,14 +107,14 @@ contract LendingLeverageAuthGemJoin is LibNote, DSMath {
         uint256[] memory errors = new uint[](1);
         errors = ComLike(lender_).enterMarkets(ctokens);
         require(errors[0] == 0);
-        require(gem.approve(address(ltk), uint256(-1)), "LendingLeverageAuthGemJoin/failed-approve-repayBorrow");
+        require(gem.approve(address(ltk), uint256(-1)), "FarmingAuthGemJoin/failed-approve-repayBorrow");
     }
 
     // --- Administration ---
     function file(bytes32 what, address data) external auth {
         if (what == "excess_delegator") excessDelegator = CalLike(data);
         else if (what == "route") route = RouteLike(data);
-        else revert("LendingLeverageAuthGemJoin/file-unrecognized-param");
+        else revert("FarmingAuthGemJoin/file-unrecognized-param");
         emit File(what, data);
     }
 
@@ -130,7 +130,7 @@ contract LendingLeverageAuthGemJoin is LibNote, DSMath {
         else if (what == "bonus_auction_max_amount") bonusAuctionMaxAmount = data;
         else if (what == "bonus_auction_duration") bonusAuctionDuration = data;
         else if (what == "excess_margin") excessMargin = data;
-        else revert("LendingLeverageAuthGemJoin/file-unrecognized-param");
+        else revert("FarmingAuthGemJoin/file-unrecognized-param");
 
         emit File(what, data);
     }
@@ -185,9 +185,9 @@ contract LendingLeverageAuthGemJoin is LibNote, DSMath {
             uint256[] memory _amountOut =  route.getAmountsOut(_balance, path);
             uint256 _buyGemAmount = min(_missingUnderlying, _amountOut[_amountOut.length - 1]);
             _buyGemAmount = min(bonusAuctionMaxAmount, _buyGemAmount);
-            require(bonusToken.approve(address(route), _buyGemAmount), "LendingLeverageAuthGemJoin/failed-approve-bonus-token");
+            require(bonusToken.approve(address(route), _buyGemAmount), "FarmingAuthGemJoin/failed-approve-bonus-token");
             route.swapTokensForExactTokens(_buyGemAmount, uint(0), path, address(this), block.timestamp + 3600);
-            require(ltk.mint(_buyGemAmount) == 0, "LendingLeverageAuthGemJoin/failed-mint");
+            require(ltk.mint(_buyGemAmount) == 0, "FarmingAuthGemJoin/failed-mint");
 
             _updateLeverage(0);
         }
@@ -205,12 +205,12 @@ contract LendingLeverageAuthGemJoin is LibNote, DSMath {
 
                 _updateLeverage(_excessUnderlying);
 
-                require(ltk.redeemUnderlying(_excessUnderlying) == 0, "LendingLeverageAuthGemJoin/failed-redemmUnderlying-excess");
-                require(gem.transfer(address(excessDelegator), _excessUnderlying), "LendingLeverageAuthGemJoin/failed-transfer-excess");
+                require(ltk.redeemUnderlying(_excessUnderlying) == 0, "FarmingAuthGemJoin/failed-redemmUnderlying-excess");
+                require(gem.transfer(address(excessDelegator), _excessUnderlying), "FarmingAuthGemJoin/failed-transfer-excess");
             }
 
             if (_balance > 0) {
-                require(bonusToken.transfer(address(excessDelegator), _balance), "LendingLeverageAuthGemJoin/failed-transfer-bonus-token");
+                require(bonusToken.transfer(address(excessDelegator), _balance), "FarmingAuthGemJoin/failed-transfer-bonus-token");
             }
 
             if (actualUnderlying_ > _gemsAdjustedMargin || _balance > 0) {
@@ -223,14 +223,14 @@ contract LendingLeverageAuthGemJoin is LibNote, DSMath {
     // --- Join method ---
 
     function join(address guy, uint256 wad) public note auth lock {
-        require(live == 1, "LendingLeverageAuthGemJoin/not-live");
+        require(live == 1, "FarmingAuthGemJoin/not-live");
         uint256 wad18 = mul(wad, 10 ** (18 - dec));
-        require(int256(wad18) >= 0, "LendingLeverageAuthGemJoin/overflow");
+        require(int256(wad18) >= 0, "FarmingAuthGemJoin/overflow");
         vat.slip(ilk, guy, int256(wad18));
         total = add(total, wad);
 
-        require(gem.transferFrom(guy, address(this), wad), "LendingLeverageAuthGemJoin/failed-transfer");
-        require(ltk.mint(wad) == 0, "LendingLeverageAuthGemJoin/failed-mint");
+        require(gem.transferFrom(guy, address(this), wad), "FarmingAuthGemJoin/failed-transfer");
+        require(ltk.mint(wad) == 0, "FarmingAuthGemJoin/failed-mint");
 
         _updateLeverage(0);
         _checkLiquidityIssue();
@@ -238,14 +238,14 @@ contract LendingLeverageAuthGemJoin is LibNote, DSMath {
 
     function exit(address guy, uint256 wad) public note lock {
         uint256 wad18 = mul(wad, gemTo18ConversionFactor);
-        require(int256(wad18) >= 0, "LendingLeverageAuthGemJoin/overflow");
+        require(int256(wad18) >= 0, "FarmingAuthGemJoin/overflow");
         vat.slip(ilk, msg.sender, -int256(wad18));
         total = sub(total, wad);
 
         _updateLeverage(wad);
 
-        require(ltk.redeemUnderlying(wad) == 0, "LendingLeverageAuthGemJoin/failed-redemmUnderlying");
-        require(gem.transfer(guy, wad), "LendingLeverageAuthGemJoin/failed-transfer");
+        require(ltk.redeemUnderlying(wad) == 0, "FarmingAuthGemJoin/failed-redemmUnderlying");
+        require(gem.transfer(guy, wad), "FarmingAuthGemJoin/failed-transfer");
 
         _checkLiquidityIssue();
     }
@@ -256,7 +256,7 @@ contract LendingLeverageAuthGemJoin is LibNote, DSMath {
         uint256 _borrowBalance = ltk.borrowBalanceStored(address(this));
         uint256 _actualUnderlying = sub(_balanceUnderlying, _borrowBalance);
 
-        require(_actualUnderlying >= adjustmentAmount_, "LendingLeverageAuthGemJoin/error-adjustment");
+        require(_actualUnderlying >= adjustmentAmount_, "FarmingAuthGemJoin/error-adjustment");
         _actualUnderlying = sub(_actualUnderlying, adjustmentAmount_);
 
         uint256 _futureUnderlyingBalance = mul(_actualUnderlying, WAD) / sub( WAD , coefficientTarget());
@@ -283,8 +283,8 @@ contract LendingLeverageAuthGemJoin is LibNote, DSMath {
                 _compBorrow = sub(totalUnderlying_, _balanceUnderlying);
             }
 
-            require(ltk.borrow(_compBorrow) == 0, "LendingLeverageAuthGemJoin/failed-borrow");
-            require(ltk.mint(_compBorrow) == 0, "LendingLeverageAuthGemJoin/failed-mint");
+            require(ltk.borrow(_compBorrow) == 0, "FarmingAuthGemJoin/failed-borrow");
+            require(ltk.mint(_compBorrow) == 0, "FarmingAuthGemJoin/failed-mint");
 
             _balanceUnderlying = add(_balanceUnderlying, _compBorrow);
             _borrowBalanceStored = add(_borrowBalanceStored, _compBorrow);
@@ -306,8 +306,8 @@ contract LendingLeverageAuthGemJoin is LibNote, DSMath {
                 _compRedeem = sub(_balanceUnderlying, totalUnderlying_);
             }
 
-            require(ltk.redeemUnderlying(_compRedeem) == 0, "LendingLeverageAuthGemJoin/failed-redeem");
-            require(ltk.repayBorrow(_compRedeem) == 0, "LendingLeverageAuthGemJoin/failed-repay");
+            require(ltk.redeemUnderlying(_compRedeem) == 0, "FarmingAuthGemJoin/failed-redeem");
+            require(ltk.repayBorrow(_compRedeem) == 0, "FarmingAuthGemJoin/failed-repay");
 
             _balanceUnderlying = sub(_balanceUnderlying, _compRedeem);
             _borrowBalanceStored = sub(_borrowBalanceStored, _compRedeem);

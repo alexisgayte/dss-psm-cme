@@ -19,23 +19,19 @@ import "lib/dss/lib/ds-value/src/value.sol";
 import "lib/dss/src/flip.sol";
 
 import "../DssPsmCme.sol";
-import {LendingLeverageAuthGemJoin} from "../join-lending-leverage-auth.sol";
+import { FarmingAuthGemJoin } from "../join-farming-auth.sol";
+import { LendingHarvest } from "../LendingHarvest.sol";
 
 interface PsmCmeAbstract {
-    function wards(address) external returns (uint256);
-    function vat() external returns (address);
-    function gemJoin() external returns (address);
-    function leverageGemJoin() external returns (address);
     function dai() external returns (address);
-    function daiJoin() external returns (address);
-    function ilk() external returns (bytes32);
-    function leverageIlk() external returns (bytes32);
-    function vow() external returns (address);
-    function tin() external returns (uint256);
-    function tout() external returns (uint256);
+    function token() external returns (address);
     function file(bytes32 what, uint256 data) external;
-    function sellGem(address usr, uint256 gemAmt) external;
-    function buyGem(address usr, uint256 gemAmt) external;
+    function sell(address usr, uint256 gemAmt) external;
+    function buy(address usr, uint256 gemAmt) external;
+}
+
+interface HarvestAbstract {
+    function lendingJoin() external returns (address);
 }
 
 interface DelegatorAbstract {
@@ -98,7 +94,7 @@ contract SpellAction {
         // Bump version
         CHANGELOG.setVersion("1.2.4");
 
-        // Create Psm cme / lender join / delegator
+        // Create Psm cme / lender join
         {
             address MCD_VAT               = CHANGELOG.getAddress("MCD_VAT");
             address MCD_JUG               = CHANGELOG.getAddress("MCD_JUG");
@@ -115,41 +111,36 @@ contract SpellAction {
             address CUSDC                 = CHANGELOG.getAddress("CUSDC");
             address ASSERT_BURN_DELEGATOR = CHANGELOG.getAddress("ASSERT_BURN_DELEGATOR");
 
-            address MCD_JOIN_COMP_FARM_USDC_A = address(new LendingLeverageAuthGemJoin(address(MCD_VAT), ILK_PSM_COMP_FARM_USDC_A, address(USDC), address(CUSDC), address(COMP), COMPTROLLER));
-            address MCD_JOIN_COMP_FARM_DAI_A  = address(new LendingLeverageAuthGemJoin(address(MCD_VAT), ILK_PSM_COMP_FARM_DAI_A, address(MCD_DAI), address(CDAI), address(COMP), COMPTROLLER));
+            address MCD_JOIN_COMP_FARM_USDC_A = address(new FarmingAuthGemJoin(address(MCD_VAT), ILK_PSM_COMP_FARM_USDC_A, address(USDC), address(CUSDC), address(COMP), COMPTROLLER));
+            address MCD_JOIN_COMP_FARM_DAI_A  = address(new FarmingAuthGemJoin(address(MCD_VAT), ILK_PSM_COMP_FARM_DAI_A, address(MCD_DAI), address(CDAI), address(COMP), COMPTROLLER));
             address MCD_PSM_COMP_FARM_USDC_A  = address(new DssPsmCme(address(MCD_JOIN_COMP_FARM_USDC_A), address(MCD_JOIN_COMP_FARM_DAI_A), address(MCD_JOIN_DAI), address(MCD_VOW)));
 
-            require(GemJoinAbstract(MCD_JOIN_COMP_FARM_USDC_A).vat() == MCD_VAT, "join-vat-not-match");
-            require(GemJoinAbstract(MCD_JOIN_COMP_FARM_USDC_A).ilk() == ILK_PSM_COMP_FARM_USDC_A, "join-ilk-not-match");
-            require(GemJoinAbstract(MCD_JOIN_COMP_FARM_USDC_A).gem() == USDC, "join-gem-not-match");
-            require(GemJoinAbstract(MCD_JOIN_COMP_FARM_USDC_A).dec() == DSTokenAbstract(USDC).decimals(), "join-dec-not-match");
 
-            require(GemJoinAbstract(MCD_JOIN_COMP_FARM_DAI_A).vat() == MCD_VAT, "join-vat-not-match");
-            require(GemJoinAbstract(MCD_JOIN_COMP_FARM_DAI_A).ilk() == ILK_PSM_COMP_FARM_DAI_A, "join-ilk-not-match");
-            require(GemJoinAbstract(MCD_JOIN_COMP_FARM_DAI_A).gem() == MCD_DAI, "join-gem-not-match");
-            require(GemJoinAbstract(MCD_JOIN_COMP_FARM_DAI_A).dec() == DSTokenAbstract(MCD_DAI).decimals(), "join-dec-not-match");
-            require(PsmCmeAbstract(MCD_PSM_COMP_FARM_USDC_A).vat() == MCD_VAT, "psm-vat-not-match");
-            require(PsmCmeAbstract(MCD_PSM_COMP_FARM_USDC_A).dai() == MCD_DAI, "psm-dai-not-match");
-            require(PsmCmeAbstract(MCD_PSM_COMP_FARM_USDC_A).daiJoin() == MCD_JOIN_DAI, "psm-dai-join-not-match");
-            require(PsmCmeAbstract(MCD_PSM_COMP_FARM_USDC_A).ilk() == ILK_PSM_COMP_FARM_USDC_A, "psm-ilk-not-match");
-            require(PsmCmeAbstract(MCD_PSM_COMP_FARM_USDC_A).leverageIlk() == ILK_PSM_COMP_FARM_DAI_A, "psm-ilk-not-match");
-            require(PsmCmeAbstract(MCD_PSM_COMP_FARM_USDC_A).vow() == MCD_VOW, "psm-vow-not-match");
-            require(PsmCmeAbstract(MCD_PSM_COMP_FARM_USDC_A).gemJoin() == MCD_JOIN_COMP_FARM_USDC_A, "psm-gem-join-not-match");
-            require(PsmCmeAbstract(MCD_PSM_COMP_FARM_USDC_A).leverageGemJoin() == MCD_JOIN_COMP_FARM_DAI_A, "psm-leverage-gem-join-not-match");
+            require(GemJoinAbstract(MCD_JOIN_COMP_FARM_USDC_A).vat()        == MCD_VAT, "join-vat-not-match");
+            require(GemJoinAbstract(MCD_JOIN_COMP_FARM_USDC_A).ilk()        == ILK_PSM_COMP_FARM_USDC_A, "join-ilk-not-match");
+            require(GemJoinAbstract(MCD_JOIN_COMP_FARM_USDC_A).gem()        == USDC, "join-gem-not-match");
+            require(GemJoinAbstract(MCD_JOIN_COMP_FARM_USDC_A).dec()        == DSTokenAbstract(USDC).decimals(), "join-dec-not-match");
+
+            require(GemJoinAbstract(MCD_JOIN_COMP_FARM_DAI_A).vat()         == MCD_VAT, "join-vat-not-match");
+            require(GemJoinAbstract(MCD_JOIN_COMP_FARM_DAI_A).ilk()         == ILK_PSM_COMP_FARM_DAI_A, "join-ilk-not-match");
+            require(GemJoinAbstract(MCD_JOIN_COMP_FARM_DAI_A).gem()         == MCD_DAI, "join-gem-not-match");
+            require(GemJoinAbstract(MCD_JOIN_COMP_FARM_DAI_A).dec()         == DSTokenAbstract(MCD_DAI).decimals(), "join-dec-not-match");
+
+            require(PsmCmeAbstract(MCD_PSM_COMP_FARM_USDC_A).dai()          == MCD_DAI, "psm-dai-not-match");
+            require(PsmCmeAbstract(MCD_PSM_COMP_FARM_USDC_A).token()        == USDC, "psm-vow-not-match");
 
             // Allow new Join to modify Vat registry
             VatAbstract(MCD_VAT).rely(address(MCD_JOIN_COMP_FARM_USDC_A));
             VatAbstract(MCD_VAT).rely(address(MCD_JOIN_COMP_FARM_DAI_A));
 
-            // link and authorized Join lender to excessDelegator
-            LendingLeverageAuthGemJoin(ASSERT_BURN_DELEGATOR).rely(address(MCD_JOIN_COMP_FARM_USDC_A));
-            LendingLeverageAuthGemJoin(ASSERT_BURN_DELEGATOR).rely(address(MCD_JOIN_COMP_FARM_DAI_A));
-            LendingLeverageAuthGemJoin(MCD_JOIN_COMP_FARM_USDC_A).file("excess_delegator", address(ASSERT_BURN_DELEGATOR));
-            LendingLeverageAuthGemJoin(MCD_JOIN_COMP_FARM_DAI_A).file("excess_delegator", address(ASSERT_BURN_DELEGATOR));
-
             // Allow PSM-CME to join
-            LendingLeverageAuthGemJoin(MCD_JOIN_COMP_FARM_USDC_A).rely(address(MCD_PSM_COMP_FARM_USDC_A));
-            LendingLeverageAuthGemJoin(MCD_JOIN_COMP_FARM_DAI_A).rely(address(MCD_PSM_COMP_FARM_USDC_A));
+            FarmingAuthGemJoin(MCD_JOIN_COMP_FARM_USDC_A).rely(address(MCD_PSM_COMP_FARM_USDC_A));
+            FarmingAuthGemJoin(MCD_JOIN_COMP_FARM_DAI_A).rely(address(MCD_PSM_COMP_FARM_USDC_A));
+
+            // set Join param
+            FarmingAuthGemJoin(MCD_JOIN_COMP_FARM_USDC_A).file("excess_delegator", address(ASSERT_BURN_DELEGATOR));
+            FarmingAuthGemJoin(MCD_JOIN_COMP_FARM_DAI_A).file("excess_delegator", address(ASSERT_BURN_DELEGATOR));
+
             // Set PSM-CME param
             DssPsmCme(MCD_PSM_COMP_FARM_USDC_A).file("tin", 1 * WAD / 1000);
             DssPsmCme(MCD_PSM_COMP_FARM_USDC_A).file("tout", 1 * WAD / 1000);
@@ -165,6 +156,26 @@ contract SpellAction {
             CHANGELOG.setAddress("MCD_JOIN_COMP_FARM_DAI_A", MCD_JOIN_COMP_FARM_DAI_A);
             CHANGELOG.setAddress("MCD_PSM_COMP_FARM_USDC_A", MCD_PSM_COMP_FARM_USDC_A);
 
+        }
+
+        // Harvester
+        {
+            address MCD_JOIN_COMP_FARM_DAI_A  = CHANGELOG.getAddress("MCD_JOIN_COMP_FARM_DAI_A");
+            address MCD_JOIN_COMP_FARM_USDC_A = CHANGELOG.getAddress("MCD_JOIN_COMP_FARM_USDC_A");
+
+            address HARVEST_COMP_FARM_DAI_A   = address(new LendingHarvest(address(MCD_JOIN_COMP_FARM_DAI_A)));
+            address HARVEST_COMP_FARM_USDC_A  = address(new LendingHarvest(address(MCD_JOIN_COMP_FARM_USDC_A)));
+
+            require(HarvestAbstract(HARVEST_COMP_FARM_USDC_A).lendingJoin() == MCD_JOIN_COMP_FARM_USDC_A, "join-ilk-not-match");
+            require(HarvestAbstract(HARVEST_COMP_FARM_DAI_A).lendingJoin()  == MCD_JOIN_COMP_FARM_DAI_A, "join-ilk-not-match");
+
+            // Allow Harvest to join
+            FarmingAuthGemJoin(MCD_JOIN_COMP_FARM_USDC_A).rely(address(HARVEST_COMP_FARM_USDC_A));
+            FarmingAuthGemJoin(MCD_JOIN_COMP_FARM_DAI_A).rely(address(HARVEST_COMP_FARM_DAI_A));
+
+
+            CHANGELOG.setAddress("HARVEST_COMP_FARM_DAI_A", HARVEST_COMP_FARM_DAI_A);
+            CHANGELOG.setAddress("HARVEST_COMP_FARM_USDC_A", HARVEST_COMP_FARM_USDC_A);
         }
 
         // create flip for Join comp farming USDC and DAI
@@ -271,7 +282,7 @@ contract SpellAction {
     }
 }
 
-contract DssPsmCompMixExposureLenderLevergeJoinSpell {
+contract DssPsmCompMixExposureFarmerJoinSpell {
     ChainlogAbstract constant CHANGELOG =
     ChainlogAbstract(0xdA0Ab1e0017DEbCd72Be8599041a2aa3bA7e740F);
 
