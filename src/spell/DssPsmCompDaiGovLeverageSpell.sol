@@ -111,8 +111,9 @@ contract SpellAction {
         LendingAuthGemJoin(MCD_JOIN_COMP_LEND_DAI_A).rely(address(MCD_PSM_COMP_LEND_DAI_LEVERAGE));
         FarmingAuthGemJoin(MCD_JOIN_COMP_FARM_DAI_A).rely(address(MCD_PSM_COMP_FARM_DAI_LEVERAGE));
 
-        DaiJoinAbstract(MCD_DAI).rely(address(MCD_PSM_COMP_LEND_DAI_LEVERAGE));
-        DaiJoinAbstract(MCD_DAI).rely(address(MCD_PSM_COMP_FARM_DAI_LEVERAGE));
+        // Authorize access to suck
+        VatAbstract(MCD_VAT).rely(address(MCD_PSM_COMP_LEND_DAI_LEVERAGE));
+        VatAbstract(MCD_VAT).rely(address(MCD_PSM_COMP_FARM_DAI_LEVERAGE));
 
         CHANGELOG.setAddress("MCD_PSM_COMP_LEND_DAI_LEVERAGE", MCD_PSM_COMP_LEND_DAI_LEVERAGE);
         CHANGELOG.setAddress("MCD_PSM_COMP_FARM_DAI_LEVERAGE", MCD_PSM_COMP_FARM_DAI_LEVERAGE);

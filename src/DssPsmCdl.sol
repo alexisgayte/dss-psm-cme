@@ -26,7 +26,7 @@ contract DssPsmCdl {
     DaiAbstract         immutable public dai;
     bytes32             immutable public leverageIlk;
 
-// --- Events ---
+    // --- Events ---
     event Rely(address indexed user);
     event Deny(address indexed user);
     event File(bytes32 indexed what, uint256 data);
@@ -51,33 +51,43 @@ contract DssPsmCdl {
         vat__.hope(daiJoin_);
     }
 
+    // --- Math ---
+    uint256 constant WAD = 10 ** 18;
+    function rad(uint256 wad) internal pure returns (uint256) {
+        return mul(wad, 10 ** 27);
+    }
+    function mul(uint256 x, uint256 y) internal pure returns (uint256 z) {
+        require(y == 0 || (z = x * y) / y == x);
+    }
+
     // --- Primary Functions auth ---
     function leverage(uint amount) external lock auth {
 
-        // flash mint
-        dai.mint(address(this), amount);
-
         emit LeverageDai(msg.sender, amount);
+
+        // flash mint
+        vat.suck(address(this), address(this), rad(amount));
+        daiJoin.exit(address(this), amount);
 
         leverageJoin.join(address(this), amount);
         vat.frob(leverageIlk, address(this), address(this), address(this), int256(amount), int256(amount));
-        daiJoin.exit(address(this), amount);
 
-        dai.burn(address(this), amount);
+        vat.heal(rad(amount));
+
     }
 
     function deleverage(uint amount) external lock auth {
 
-        // flash mint
-        dai.mint(address(this), amount);
-
         emit DeleverageDai(msg.sender, amount);
 
-        daiJoin.join(address(this), amount);
+        // flash mint
+        vat.suck(address(this), address(this), rad(amount));
+
         vat.frob(leverageIlk, address(this), address(this), address(this), -int256(amount), -int256(amount));
         leverageJoin.exit(address(this), amount);
+        daiJoin.join(address(this), amount);
 
-        dai.burn(address(this), amount);
+        vat.heal(rad(amount));
     }
 
 }

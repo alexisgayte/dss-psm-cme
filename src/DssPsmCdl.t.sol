@@ -137,7 +137,7 @@ contract DssPsmCdlTest is DSTest {
         vat.rely(address(daiJoin));
 
         psmC = new DssPsmCdl(address(gemA), address(daiJoin));
-        dai.rely(address(psmC));
+        vat.rely(address(psmC));
 
         gemA.rely(address(psmC));
         daiJoin.rely(address(psmC));
@@ -150,8 +150,8 @@ contract DssPsmCdlTest is DSTest {
         spotGemA.poke(ilkA);
 
 
-        vat.file(ilkA, "line", rad(100000 ether));
-        vat.file("Line",       rad(100000 ether));
+        vat.file(ilkA, "line", rad(100000000 ether));
+        vat.file("Line",       rad(100000000 ether));
 
         gemA.deny(me);
         daiJoin.deny(me);
