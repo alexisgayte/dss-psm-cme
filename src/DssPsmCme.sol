@@ -72,6 +72,8 @@ contract DssPsmCme {
     // --- Math ---
     uint256 constant WAD = 10 ** 18;
     uint256 constant RAY = 10 ** 27;
+    uint256 constant RAD = 10 ** 45;
+
     function add(uint256 x, uint256 y) internal pure returns (uint256 z) {
         require((z = x + y) >= x);
     }
@@ -80,6 +82,9 @@ contract DssPsmCme {
     }
     function mul(uint256 x, uint256 y) internal pure returns (uint256 z) {
         require(y == 0 || (z = x * y) / y == x);
+    }
+    function min(uint256 x, uint256 y) internal pure returns (uint z) {
+        return x <= y ? x : y;
     }
 
     // --- Administration ---
@@ -95,6 +100,24 @@ contract DssPsmCme {
         else revert("DssPsmCme/file-unrecognized-param");
 
         emit File(what, data);
+    }
+
+    // --- View ---
+
+    function getReserves() public view returns (uint256 _reserve0, uint256 _reserve1, uint256 _blockTimestampLast) {
+
+        uint256 _reserveGlobal = sub(vat.Line(), vat.debt()) * WAD / RAD;
+
+        (uint256 _Art,,,uint256 _line, ) = vat.ilks(ilk);
+        uint256 _reserveGem = sub(_line * WAD / RAD , _Art);
+
+        (_Art,,,_line, ) = vat.ilks(leverageIlk);
+        uint256 _reserveLeverage = sub(_line * WAD / RAD, _Art);
+
+        _reserve0 = min(min(_reserveGem, _reserveLeverage),_reserveGlobal);
+
+        (,_reserve1) = vat.urns(ilk, address(this));
+        _blockTimestampLast = 0;
     }
 
     // --- Primary Functions ---

@@ -210,6 +210,21 @@ contract DssPsmCmeTest is DSTest {
         daiJoinGem.deny(me);
     }
 
+    function test_reserve() public {
+
+        (uint256 daireserve, uint256 gemreserve, ) = psmA.getReserves();
+
+        assertEq(daireserve, 1000 ether);
+        assertEq(gemreserve, 0);
+
+        usdx.approve(address(psmA));
+        psmA.sell(me, 100 * USDX_WAD);
+
+        (daireserve, gemreserve, ) = psmA.getReserves();
+        assertEq(daireserve, 900 ether);
+        assertEq(gemreserve, 100 ether);
+    }
+
     // sanity check & Param check
     function testFail_direct_deposit() public {
         usdx.approve(address(gemA), uint(-1));
@@ -514,4 +529,5 @@ contract DssPsmCmeTest is DSTest {
         dai.approve(address(psmA), uint(-1));
         psmA.buy(me, 0);
     }
+
 }
