@@ -11,6 +11,8 @@ import {Dai}              from "dss/dai.sol";
 
 import "./stub/TestCToken.stub.sol";
 
+import "./mock/Delegator.mock.sol";
+
 import "./testhelper/TestToken.sol";
 import "./testhelper/MkrTokenAuthority.sol";
 
@@ -21,18 +23,6 @@ interface Hevm {
     function warp(uint256) external;
     function store(address,bytes32,bytes32) external;
     function roll(uint256) external;
-}
-
-contract TestDelegator {
-    bool public hasBeenCalled = false;
-
-    function call() external {
-        hasBeenCalled = true;
-    }
-
-    function reset() external {
-        hasBeenCalled = false;
-    }
 }
 
 contract TestVow is Vow {
@@ -97,7 +87,7 @@ contract DssPsmCmeTest is DSTest {
     TestToken bonusToken;
 
 
-    TestDelegator excessDelegator;
+    DelegatorMock excessDelegator;
 
     LendingAuthGemJoin gemA;
     LendingAuthGemJoin gemB;
@@ -150,7 +140,7 @@ contract DssPsmCmeTest is DSTest {
         dai.rely(address(cdai));
         bonusAuthority.rely(address(cdai));
 
-        excessDelegator = new TestDelegator();
+        excessDelegator = new DelegatorMock(address(dai), address(usdx), address(bonusToken));
 
         vat = new Vat();
 

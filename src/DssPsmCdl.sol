@@ -20,6 +20,7 @@ contract DssPsmCdl {
     uint private unlocked = 1;
     modifier lock() {require(unlocked == 1, 'DssPsmCdl/Locked');unlocked = 0;_;unlocked = 1;}
 
+    // --- Data ---
     VatAbstract         immutable public vat;
     DaiJoinAbstract     immutable public daiJoin;
     GemJoinAbstract     immutable public leverageJoin;

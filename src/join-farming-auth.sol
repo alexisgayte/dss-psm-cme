@@ -55,6 +55,7 @@ contract FarmingAuthGemJoin is LibNote, DSMath {
     uint private unlocked = 1;
     modifier lock() {require(unlocked == 1, 'DssPsmCme/Locked');unlocked = 0;_;unlocked = 1;}
 
+    // --- Data ---
     VatLike public vat;
     bytes32 public ilk;
     GemLike public gem;
@@ -76,12 +77,14 @@ contract FarmingAuthGemJoin is LibNote, DSMath {
     uint256 public cfMax;
     ComLike public lender;
 
+    // --- Events ---
     event Rely(address indexed user);
     event Deny(address indexed user);
     event File(bytes32 indexed what, address data);
     event File(bytes32 indexed what, uint256 data);
     event Delegate(address indexed sender, address indexed delegator, uint256 bonus, uint256 gem);
 
+    // --- Init ---
     constructor(address vat_, bytes32 ilk_, address gem_, address ltk_, address bonusToken_, address lender_) public {
         gem = GemLike(gem_);
         wards[msg.sender] = 1;
@@ -108,6 +111,13 @@ contract FarmingAuthGemJoin is LibNote, DSMath {
         errors = ComLike(lender_).enterMarkets(ctokens);
         require(errors[0] == 0);
         require(gem.approve(address(ltk), uint256(-1)), "FarmingAuthGemJoin/failed-approve-repayBorrow");
+    }
+
+    // --- Math ---
+    function add(uint x, int y) internal pure returns (uint z) {
+        z = x + uint(y);
+        require(y >= 0 || z <= x);
+        require(y <= 0 || z >= x);
     }
 
     // --- Administration ---
@@ -139,13 +149,7 @@ contract FarmingAuthGemJoin is LibNote, DSMath {
         live = 0;
     }
 
-    // --- Math ---
-    function add(uint x, int y) internal pure returns (uint z) {
-        z = x + uint(y);
-        require(y >= 0 || z <= x);
-        require(y <= 0 || z >= x);
-    }
-
+    // --- Primary Functions ---
     // --- harvest ---
     function harvest() external lock note auth {
         address[] memory ctokens = new address[](1);
@@ -215,13 +219,11 @@ contract FarmingAuthGemJoin is LibNote, DSMath {
 
             if (actualUnderlying_ > _gemsAdjustedMargin || _balance > 0) {
                 emit Delegate(msg.sender, address(excessDelegator), _balance, _excessUnderlying);
-                excessDelegator.call();
             }
         }
     }
 
     // --- Join method ---
-
     function join(address guy, uint256 wad) public note auth lock {
         require(live == 1, "FarmingAuthGemJoin/not-live");
         uint256 wad18 = mul(wad, 10 ** (18 - dec));

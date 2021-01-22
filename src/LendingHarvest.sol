@@ -11,6 +11,7 @@ contract LendingHarvest {
     uint private unlocked = 1;
     modifier lock() {require(unlocked == 1, 'DssPsmCme/Locked');unlocked = 0;_;unlocked = 1;}
 
+    // --- Data ---
     HarvestAbstract immutable public lendingJoin;
 
     // --- Init ---

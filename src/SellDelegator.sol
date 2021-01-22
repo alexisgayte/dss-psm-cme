@@ -28,6 +28,52 @@ contract SellDelegator {
     uint private unlocked = 1;
     modifier lock() {require(unlocked == 1, 'SellDelegator/re-entrance');unlocked = 0;_;unlocked = 1;}
 
+    // --- Data ---
+    uint256 public live;
+
+    // --- primary Data ---
+    address public immutable reserve;
+    PsmLike public psm;
+    GemLike public immutable dai;
+    GemLike public immutable usdc;
+    GemLike public immutable bonusToken;
+    RouteLike public route;
+
+    uint256 public bonusAuctionMaxAmount;
+    uint256 public daiAuctionMaxAmount;
+    uint256 public bonusAuctionDuration;
+    uint256 public daiAuctionDuration;
+    uint256 public lastDaiAuctionTimestamp;
+    uint256 public lastBonusAuctionTimestamp;
+
+    // --- Event ---
+    event File(bytes32 indexed what, bool data);
+    event File(bytes32 indexed what, address data);
+    event File(bytes32 indexed what, uint256 data);
+    event Rely(address indexed user);
+    event Deny(address indexed user);
+
+    // --- Init ---
+    constructor(address reserve_, address dai_, address usdc_, address bonusToken_) public {
+        wards[msg.sender] = 1;
+        live = 1;
+
+        reserve = reserve_;
+        dai = GemLike(dai_);
+        usdc = GemLike(usdc_);
+        bonusToken = GemLike(bonusToken_);
+
+        bonusAuctionDuration = 3600;
+        bonusAuctionMaxAmount = 500;
+        daiAuctionDuration = 3600;
+        daiAuctionMaxAmount = 500;
+    }
+
+    // --- Math ---
+    function min(uint256 x, uint256 y) internal pure returns (uint256 z) {
+        return x <= y ? x : y;
+    }
+
     // --- Administration ---
     function file(bytes32 what, address data) external auth {
         if (what == "psm") psm = PsmLike(data);
@@ -51,55 +97,12 @@ contract SellDelegator {
         live = 0;
     }
 
-    uint256 public live;
-
-    event File(bytes32 indexed what, bool data);
-    event File(bytes32 indexed what, address data);
-    event File(bytes32 indexed what, uint256 data);
-    event Rely(address indexed user);
-    event Deny(address indexed user);
-
-    // --- Math ---
-    function min(uint256 x, uint256 y) internal pure returns (uint256 z) {
-        return x <= y ? x : y;
-    }
-
-    // primary variable
-    address public immutable reserve;
-    PsmLike public psm;
-    GemLike public immutable dai;
-    GemLike public immutable usdc;
-    GemLike public immutable bonusToken;
-    RouteLike public route;
-
-    uint256 public bonusAuctionMaxAmount;
-    uint256 public daiAuctionMaxAmount;
-    uint256 public bonusAuctionDuration;
-    uint256 public daiAuctionDuration;
-    uint256 public lastDaiAuctionTimestamp;
-    uint256 public lastBonusAuctionTimestamp;
-
-    // constructor
-    constructor(address reserve_, address dai_, address usdc_, address bonusToken_) public {
-        wards[msg.sender] = 1;
-        live = 1;
-
-        reserve = reserve_;
-        dai = GemLike(dai_);
-        usdc = GemLike(usdc_);
-        bonusToken = GemLike(bonusToken_);
-
-        bonusAuctionDuration = 3600;
-        bonusAuctionMaxAmount = 500;
-        daiAuctionDuration = 3600;
-        daiAuctionMaxAmount = 500;
-    }
-
-
     // --- Primary Functions ---
 
-    function call() external {
-
+    function call() external auth {
+        processUsdc();
+        processComp();
+        processDai();
     }
 
     function processDai() external lock {

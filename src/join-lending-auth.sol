@@ -46,8 +46,6 @@ interface CalLike {
     function call() external;
 }
 
-// Authed GemJoin for a token that has a lower precision than 18 and it has decimals (like USDC)
-
 contract LendingAuthGemJoin is LibNote {
     // --- Auth ---
     mapping (address => uint256) public wards;
@@ -59,7 +57,7 @@ contract LendingAuthGemJoin is LibNote {
     uint private unlocked = 1;
     modifier lock() {require(unlocked == 1, 'DssPsmCme/Locked');unlocked = 0;_;unlocked = 1;}
 
-
+    // --- Data ---
     VatLike public immutable vat;
     bytes32 public immutable ilk;
     GemLike public gem;
@@ -72,11 +70,13 @@ contract LendingAuthGemJoin is LibNote {
     GemLike public immutable bonusToken;
     uint256 public immutable gemTo18ConversionFactor;
 
+    // --- Event ---
     event Rely(address indexed user);
     event Deny(address indexed user);
     event File(bytes32 indexed what, address data);
     event Delegate(address indexed sender, address indexed delegator, uint256 bonus, uint256 gem);
 
+    // --- Init ---
     constructor(address vat_, bytes32 ilk_, address gem_, address ltk_, address bonusToken_) public {
         gem = GemLike(gem_);
         wards[msg.sender] = 1;
@@ -90,18 +90,6 @@ contract LendingAuthGemJoin is LibNote {
         total = 0;
         require(dec <= 18, "LendingAuthGemJoin/decimals-18-or-higher");
         gemTo18ConversionFactor = 10 ** (18 - dec);
-    }
-
-    // --- Administration ---
-    function file(bytes32 what, address data) external auth {
-        if (what == "excess_delegator") excessDelegator = CalLike(data);
-        else revert("LendingAuthGemJoin/file-unrecognized-param");
-
-        emit File(what, data);
-    }
-
-    function cage() external note auth {
-        live = 0;
     }
 
     // --- Math ---
@@ -121,9 +109,20 @@ contract LendingAuthGemJoin is LibNote {
         require((z = x - y) <= x, "LendingAuthGemJoin/underflow");
     }
 
+    // --- Administration ---
+    function file(bytes32 what, address data) external auth {
+        if (what == "excess_delegator") excessDelegator = CalLike(data);
+        else revert("LendingAuthGemJoin/file-unrecognized-param");
+
+        emit File(what, data);
+    }
+
+    function cage() external note auth {
+        live = 0;
+    }
+
 
     // --- harvest ---
-
     function harvest() external note lock auth {
         if (address(excessDelegator) != address(0)) {
             uint256 _balance = bonusToken.balanceOf(address(this));
@@ -143,13 +142,11 @@ contract LendingAuthGemJoin is LibNote {
 
             if (_balance > 0 || _underlying > _total) {
                 emit Delegate(msg.sender, address(excessDelegator), _balance, _excessUnderlying);
-                excessDelegator.call();
             }
         }
     }
 
     // --- Join ---
-
     function join(address guy, uint256 wad) external note auth {
         require(live == 1, "LendingAuthGemJoin/not-live");
         uint256 wad18 = mul(wad, gemTo18ConversionFactor);

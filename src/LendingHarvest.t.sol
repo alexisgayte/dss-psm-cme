@@ -9,6 +9,9 @@ import {GemJoin, DaiJoin} from "dss/join.sol";
 import {Dai}              from "dss/dai.sol";
 
 import "./stub/TestCToken.stub.sol";
+import "./stub/TestCToken.stub.sol";
+
+import "./mock/Delegator.mock.sol";
 
 import "./testhelper/TestToken.sol";
 import "./testhelper/MkrTokenAuthority.sol";
@@ -16,18 +19,6 @@ import "./testhelper/MkrTokenAuthority.sol";
 import {LendingAuthGemJoin, LTKLike} from "./join-lending-auth.sol";
 import "./DssPsmCme.sol";
 import "./LendingHarvest.sol";
-
-contract TestDelegator {
-    bool public hasBeenCalled = false;
-
-    function call() external {
-        hasBeenCalled = true;
-    }
-
-    function reset() external {
-        hasBeenCalled = false;
-    }
-}
 
 
 contract DssPsmCmeTest is DSTest {
@@ -43,7 +34,7 @@ contract DssPsmCmeTest is DSTest {
     TestCToken cusdx;
     TestToken bonusToken;
 
-    TestDelegator excessDelegator;
+    DelegatorMock excessDelegator;
 
     LendingAuthGemJoin gemA;
     LendingHarvest lendingHarvest;
@@ -81,7 +72,7 @@ contract DssPsmCmeTest is DSTest {
         usdxAuthority.rely(address(cusdx));
         bonusAuthority.rely(address(cusdx));
 
-        excessDelegator = new TestDelegator();
+        excessDelegator = new DelegatorMock(address(dai), address(usdx), address(bonusToken));
 
         vat = new Vat();
 
@@ -117,7 +108,7 @@ contract DssPsmCmeTest is DSTest {
         bonusToken.mint(address(gemA), 1 ether);
         lendingHarvest.harvest();
 
-        assertTrue(excessDelegator.hasBeenCalled());
+        assertTrue(excessDelegator.hasMoneyBeenSent());
     }
 
 }

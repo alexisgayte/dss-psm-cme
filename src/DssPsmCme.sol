@@ -24,7 +24,7 @@ contract DssPsmCme {
     uint private unlocked = 1;
     modifier lock() {require(unlocked == 1, 'DssPsmCme/Locked');unlocked = 0;_;unlocked = 1;}
 
-
+    // --- Data ---
     VatAbstract         immutable public vat;
     VowAbstract         immutable public vow;
     bytes32             immutable public ilk;
@@ -41,7 +41,7 @@ contract DssPsmCme {
     uint256             public tout;        // toll out [wad]
     uint256             public price;       // price [wad]
 
-// --- Events ---
+    // --- Events ---
     event Rely(address indexed user);
     event Deny(address indexed user);
     event File(bytes32 indexed what, uint256 data);

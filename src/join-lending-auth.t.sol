@@ -10,24 +10,14 @@ import {Dai}              from "dss/dai.sol";
 import "./join-lending-auth.sol";
 import "./stub/TestCToken.stub.sol";
 
+import "./mock/Delegator.mock.sol";
+
 import "./testhelper/TestToken.sol";
 import "./testhelper/MkrTokenAuthority.sol";
 
 interface Hevm {
     function warp(uint256) external;
     function store(address,bytes32,bytes32) external;
-}
-
-contract TestDelegator {
-    bool public hasBeenCalled = false;
-
-    function call() external {
-        hasBeenCalled = true;
-    }
-
-    function reset() external {
-        hasBeenCalled = false;
-    }
 }
 
 contract JoinLendingAuthTest is DSTest {
@@ -44,7 +34,7 @@ contract JoinLendingAuthTest is DSTest {
 
     TestCToken ctoken;
     DSToken bonusToken;
-    TestDelegator excessDelegator;
+    DelegatorMock excessDelegator;
 
     LendingAuthGemJoin gemA;
 
@@ -91,7 +81,7 @@ contract JoinLendingAuthTest is DSTest {
         TokenAuthority bonusAuthority = new TokenAuthority();
         bonusToken.setAuthority(DSAuthority(address(bonusAuthority)));
 
-        excessDelegator = new TestDelegator();
+        excessDelegator = new DelegatorMock(address(dai), address(usdx), address(bonusToken));
         ctoken = new TestCToken("CUSDC", 8, usdx, bonusToken);
 
         bonusAuthority.rely(address(ctoken));
@@ -178,7 +168,7 @@ contract JoinLendingAuthTest is DSTest {
         gemA.join(me, 100 * USDX_WAD);
         gemA.harvest();
 
-        assertTrue(excessDelegator.hasBeenCalled());
+        assertTrue(excessDelegator.hasMoneyBeenSent());
         assertEq(bonusToken.balanceOf(address(excessDelegator)) , 3);
         assertEq(usdx.balanceOf(address(excessDelegator)) , 0);
     }
@@ -193,7 +183,7 @@ contract JoinLendingAuthTest is DSTest {
         gemA.exit(me, 100 * USDX_WAD);
         gemA.harvest();
 
-        assertTrue(!excessDelegator.hasBeenCalled());
+        assertTrue(!excessDelegator.hasMoneyBeenSent());
         assertEq(bonusToken.balanceOf(address(excessDelegator)) , 0);
     }
 
@@ -206,7 +196,7 @@ contract JoinLendingAuthTest is DSTest {
         gemA.join(me, 100 * USDX_WAD);
         vat.frob(ilkA, me, me, me, 100, 100);
         gemA.harvest();
-        assertTrue(excessDelegator.hasBeenCalled());
+        assertTrue(excessDelegator.hasMoneyBeenSent());
         assertEq(usdx.balanceOf(address(excessDelegator)) , 4 * USDX_WAD);
         assertEq(bonusToken.balanceOf(address(excessDelegator)) , 0);
     }
@@ -220,7 +210,7 @@ contract JoinLendingAuthTest is DSTest {
         gemA.join(me, 100 * USDX_WAD);
         vat.frob(ilkA, me, me, me, 100, 100);
         gemA.harvest();
-        assertTrue(excessDelegator.hasBeenCalled());
+        assertTrue(excessDelegator.hasMoneyBeenSent());
         assertEq(usdx.balanceOf(address(excessDelegator)) , 4 * USDX_WAD);
         assertEq(bonusToken.balanceOf(address(excessDelegator)) , 1);
     }
@@ -237,7 +227,7 @@ contract JoinLendingAuthTest is DSTest {
         gemA.join(me, 100 * USDX_WAD);
         vat.frob(ilkA, me, me, me, 100, 100);
         gemA.harvest();
-        assertTrue(excessDelegator.hasBeenCalled());
+        assertTrue(excessDelegator.hasMoneyBeenSent());
         assertEq(usdx.balanceOf(address(excessDelegator)) , 4 * USDX_WAD);
     }
 }

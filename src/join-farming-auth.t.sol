@@ -5,10 +5,13 @@ import "ds-token/token.sol";
 import "ds-value/value.sol";
 import {Vat}              from "dss/vat.sol";
 import {Spotter}          from "dss/spot.sol";
+import {Dai}              from "dss/dai.sol";
 
 import "./stub/TestComptroller.stub.sol";
 import "./stub/TestCToken.stub.sol";
 import "./stub/TestRoute.stub.sol";
+
+import "./mock/Delegator.mock.sol";
 
 import "./testhelper/TestToken.sol";
 import "./testhelper/MkrTokenAuthority.sol";
@@ -19,18 +22,6 @@ import "./join-farming-auth.sol";
 interface Hevm {
     function warp(uint256) external;
     function store(address,bytes32,bytes32) external;
-}
-
-contract TestDelegatorMock {
-    bool public hasBeenCalled = false;
-
-    function call() external {
-        hasBeenCalled = true;
-    }
-
-    function reset() external {
-        hasBeenCalled = false;
-    }
 }
 
 contract DssPsmCmeTest is DSTest , DSMath {
@@ -46,7 +37,7 @@ contract DssPsmCmeTest is DSTest , DSMath {
 
     TestCToken ctoken;
     DSToken bonusToken;
-    TestDelegatorMock excessDelegator;
+    DelegatorMock excessDelegator;
     TestRoute testRoute;
     TestComptroller comptroller;
 
@@ -83,6 +74,8 @@ contract DssPsmCmeTest is DSTest , DSMath {
         spotGemA = new Spotter(address(vat));
         vat.rely(address(spotGemA));
 
+        Dai dai = new Dai(0);
+
         usdx = new TestToken("USDX", 6);
         TokenAuthority usdxAuthority = new TokenAuthority();
         usdx.setAuthority(DSAuthority(address(usdxAuthority)));
@@ -96,7 +89,7 @@ contract DssPsmCmeTest is DSTest , DSMath {
         bonusToken.setAuthority(DSAuthority(address(bonusAuthority)));
         XOMP_DEC = 10 ** bonusToken.decimals();
 
-        excessDelegator = new TestDelegatorMock();
+        excessDelegator = new DelegatorMock(address(dai), address(usdx), address(bonusToken));
         ctoken = new TestCToken("CUSDC", 8, usdx, bonusToken);
         CUSDC_DEC = 10 ** ctoken.decimals();
 
@@ -289,7 +282,7 @@ contract DssPsmCmeTest is DSTest , DSMath {
         gemA.exit(me, 10000 * USDX_DEC);
         gemA.harvest();
 
-        assertTrue(excessDelegator.hasBeenCalled());
+        assertTrue(excessDelegator.hasMoneyBeenSent());
         assertEq(bonusToken.balanceOf(address(excessDelegator)) , 115); // more then 100 and 1 each mint
         assertEq(usdx.balanceOf(address(excessDelegator)) , 1 * USDX_DEC - 500); // 500 Margin
     }
@@ -305,7 +298,7 @@ contract DssPsmCmeTest is DSTest , DSMath {
         gemA.join(me, 10000 * USDX_DEC);
         gemA.harvest();
 
-        assertTrue(!excessDelegator.hasBeenCalled());
+        assertTrue(!excessDelegator.hasMoneyBeenSent());
         assertEq(bonusToken.balanceOf(address(excessDelegator)) , 0);
         assertEq(usdx.balanceOf(address(excessDelegator)) , 0);
     }
@@ -319,7 +312,7 @@ contract DssPsmCmeTest is DSTest , DSMath {
         gemA.join(me, 10000 * USDX_DEC);
         vat.frob(ilkA, me, me, me, 10000, 10000);
         gemA.harvest();
-        assertTrue(excessDelegator.hasBeenCalled());
+        assertTrue(excessDelegator.hasMoneyBeenSent());
         assertEq(usdx.balanceOf(address(excessDelegator)) , 4 * USDX_DEC - 500); // 500 Margin
     }
 
@@ -332,7 +325,7 @@ contract DssPsmCmeTest is DSTest , DSMath {
         gemA.join(me, 10000 * USDX_DEC);
         vat.frob(ilkA, me, me, me, 10000, 10000);
         gemA.harvest();
-        assertTrue(excessDelegator.hasBeenCalled());
+        assertTrue(excessDelegator.hasMoneyBeenSent());
         assertEq(usdx.balanceOf(address(excessDelegator)) , 4 * USDX_DEC - 500); // 500 Margin
         assertEq(bonusToken.balanceOf(address(excessDelegator)) , 7);
     }
@@ -350,7 +343,7 @@ contract DssPsmCmeTest is DSTest , DSMath {
         vat.frob(ilkA, me, me, me, 10000, 10000);
 
         gemA.harvest();
-        assertTrue(excessDelegator.hasBeenCalled());
+        assertTrue(excessDelegator.hasMoneyBeenSent());
         assertEq(usdx.balanceOf(address(excessDelegator)) , 4 * USDX_DEC - 500); // 500 Margin
     }
 
@@ -501,6 +494,5 @@ contract DssPsmCmeTest is DSTest , DSMath {
 
 
     }
-
 
 }
