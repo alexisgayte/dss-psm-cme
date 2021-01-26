@@ -101,12 +101,6 @@ contract BurnDelegator {
 
     // --- Primary Functions ---
 
-    function call() external auth {
-        processUsdc();
-        processComp();
-        processDai();
-    }
-
     function processDai() external lock {
         uint256 _amountDai = dai.balanceOf(address(this));
         if ((block.timestamp - lastDaiAuctionTimestamp) > daiAuctionDuration && _amountDai > 0) {
