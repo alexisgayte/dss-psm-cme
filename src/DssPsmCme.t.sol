@@ -249,6 +249,25 @@ contract DssPsmCmeTest is DSTest {
         psmA.sell(me, 100 * USDX_WAD);
     }
 
+    function testFail_cage_sell() public {
+
+        psmA.cage();
+
+        usdx.approve(address(psmA));
+        psmA.sell(me, 100 * USDX_WAD);
+    }
+
+    function test_cage_buy() public {
+
+        usdx.approve(address(psmA));
+        psmA.sell(me, 100 * USDX_WAD);
+
+        psmA.cage();
+
+        dai.approve(address(psmA), 44 ether);
+        psmA.buy(me, 40 * USDX_WAD);
+    }
+
     //
     function test_sell_no_fee() public {
         assertEq(usdx.balanceOf(me), 1000 * USDX_WAD);

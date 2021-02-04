@@ -41,6 +41,8 @@ contract DssPsmCme {
     uint256             public tout;        // toll out [wad]
     uint256             public price;       // price [wad]
 
+    uint256             public live;        // Access Flag
+
     // --- Events ---
     event Rely(address indexed user);
     event Deny(address indexed user);
@@ -51,22 +53,30 @@ contract DssPsmCme {
     // --- Init ---
     constructor(address gemJoin_, address leverageGemJoin_, address daiJoin_, address vow_) public {
         wards[msg.sender] = 1;
-        emit Rely(msg.sender);
+        price = 1*WAD;
+        live = 1;
+
+        vow = VowAbstract(vow_);
+
         GemJoinAbstract gemJoin__ = gemJoin = GemJoinAbstract(gemJoin_);
         DaiJoinAbstract daiJoin__ = daiJoin = DaiJoinAbstract(daiJoin_);
         GemJoinAbstract leverageGemJoin__ = leverageGemJoin = GemJoinAbstract(leverageGemJoin_);
+
+        ilk         = gemJoin__.ilk();
+        leverageIlk = leverageGemJoin__.ilk();
+
         VatAbstract vat__   = vat   = VatAbstract(address(gemJoin__.vat()));
         DaiAbstract dai__   = dai   = DaiAbstract(address(daiJoin__.dai()));
         GemAbstract token__ = token = GemAbstract(address(gemJoin__.gem()));
-        ilk = gemJoin__.ilk();
-        leverageIlk = leverageGemJoin__.ilk();
-        vow = VowAbstract(vow_);
+
         to18ConversionFactor = 10 ** (18 - gemJoin__.dec());
+
+        emit Rely(msg.sender);
+
+        vat__.hope(daiJoin_);
         require(dai__.approve(daiJoin_, uint256(-1)), "DssPsmCme/failed-approve");
         require(dai__.approve(leverageGemJoin_, uint256(-1)), "DssPsmCme/failed-approve");
         require(token__.approve(gemJoin_, uint256(-1)), "DssPsmCme/failed-approve");
-        vat__.hope(daiJoin_);
-        price = 1*WAD;
     }
 
     // --- Math ---
@@ -102,6 +112,10 @@ contract DssPsmCme {
         emit File(what, data);
     }
 
+    function cage() external auth {
+        live = 0;
+    }
+
     // --- View ---
 
     function getReserves() public view returns (uint256 _reserve0, uint256 _reserve1, uint256 _blockTimestampLast) {
@@ -123,6 +137,7 @@ contract DssPsmCme {
     // --- Primary Functions ---
 
     function sell(address usr, uint256 gemAmt) external lock {
+        require(live == 1, "DssPsmCme/not-live");
         uint256 gemAmt18 = mul(gemAmt, to18ConversionFactor);
         uint256 fee = mul(gemAmt18, tin) / WAD;
         uint256 daiAmt = sub(gemAmt18, fee);
