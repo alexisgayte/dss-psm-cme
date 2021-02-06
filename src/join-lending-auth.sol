@@ -90,6 +90,8 @@ contract LendingAuthGemJoin is LibNote {
         total = 0;
         require(dec <= 18, "LendingAuthGemJoin/decimals-18-or-higher");
         gemTo18ConversionFactor = 10 ** (18 - dec);
+
+        require(gem.approve(ltk_, uint256(-1)), "LendingAuthGemJoin/failed-approve-mint");
     }
 
     // --- Math ---
@@ -156,7 +158,6 @@ contract LendingAuthGemJoin is LibNote {
         total = add(total, wad);
 
         require(gem.transferFrom(guy, address(this), wad), "LendingAuthGemJoin/failed-transfer-join");
-        require(gem.approve(address(ltk), wad), "LendingAuthGemJoin/failed-approve-mint");
         require(ltk.mint(wad) == 0, "LendingAuthGemJoin/failed-mint");
     }
 

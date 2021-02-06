@@ -41,7 +41,7 @@ contract DssPsmCme {
     uint256             public tout;        // toll out [wad]
     uint256             public price;       // price [wad]
 
-    uint256             public live;        // Access Flag
+    uint256             public line;        // Line [wad]
 
     // --- Events ---
     event Rely(address indexed user);
@@ -54,7 +54,6 @@ contract DssPsmCme {
     constructor(address gemJoin_, address leverageGemJoin_, address daiJoin_, address vow_) public {
         wards[msg.sender] = 1;
         price = 1*WAD;
-        live = 1;
 
         vow = VowAbstract(vow_);
 
@@ -107,13 +106,10 @@ contract DssPsmCme {
             require(data < WAD , "DssPsmCme/more-100-percent");
             tout = data;
         }
+        else if (what == "line") line = data;
         else revert("DssPsmCme/file-unrecognized-param");
 
         emit File(what, data);
-    }
-
-    function cage() external auth {
-        live = 0;
     }
 
     // --- View ---
@@ -137,7 +133,6 @@ contract DssPsmCme {
     // --- Primary Functions ---
 
     function sell(address usr, uint256 gemAmt) external lock {
-        require(live == 1, "DssPsmCme/not-live");
         uint256 gemAmt18 = mul(gemAmt, to18ConversionFactor);
         uint256 fee = mul(gemAmt18, tin) / WAD;
         uint256 daiAmt = sub(gemAmt18, fee);
@@ -156,6 +151,9 @@ contract DssPsmCme {
 
         vat.move(address(this), address(vow), mul(fee, RAY));
 
+        // line check
+        (uint256 ink,) = vat.urns(ilk, address(this));
+        require(line >= ink, "DssPsmCme/psm-full");
     }
 
     function buy(address usr, uint256 gemAmt) external lock {

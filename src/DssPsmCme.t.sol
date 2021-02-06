@@ -172,6 +172,7 @@ contract DssPsmCmeTest is DSTest {
         vat.rely(address(daiJoinGem));
 
         psmA = new DssPsmCme(address(gemA), address(gemB), address(daiJoinGem), address(vow));
+        psmA.file("line", 1000 * WAD);
 
         gemA.rely(address(psmA));
         gemB.rely(address(psmA));
@@ -247,25 +248,6 @@ contract DssPsmCmeTest is DSTest {
         psmA.rely(me);// no right
         psmA.file("tout", 1 * WAD);
         psmA.sell(me, 100 * USDX_WAD);
-    }
-
-    function testFail_cage_sell() public {
-
-        psmA.cage();
-
-        usdx.approve(address(psmA));
-        psmA.sell(me, 100 * USDX_WAD);
-    }
-
-    function test_cage_buy() public {
-
-        usdx.approve(address(psmA));
-        psmA.sell(me, 100 * USDX_WAD);
-
-        psmA.cage();
-
-        dai.approve(address(psmA), 44 ether);
-        psmA.buy(me, 40 * USDX_WAD);
     }
 
     //
@@ -389,6 +371,26 @@ contract DssPsmCmeTest is DSTest {
         (ink2, art2) = vat.urns(ilkB, address(psmA));
         assertEq(ink2, 60 ether);
         assertEq(art2, 60 ether);
+    }
+
+    function testFail_line_over() public {
+        psmA.file("tin", 1 * TOLL_ONE_PCT);
+        psmA.file("tout", 1 * TOLL_ONE_PCT);
+        psmA.file("line", 100 * WAD);
+
+        usdx.approve(address(psmA));
+        psmA.sell(me, 101 * USDX_WAD);
+    }
+
+    function test_on_line() public {
+        psmA.file("tin", 1 * TOLL_ONE_PCT);
+        psmA.file("tout", 1 * TOLL_ONE_PCT);
+        psmA.file("line", 100 * WAD);
+
+        usdx.approve(address(psmA));
+        psmA.sell(me, 60 * USDX_WAD);
+        psmA.sell(me, 40 * USDX_WAD);
+
     }
 
     function test_swap_twice_both_fees() public {
